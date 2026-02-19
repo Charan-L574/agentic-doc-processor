@@ -1,0 +1,16 @@
+Section,Formula,Numerator,Denominator,Result,Target,Pass / Fail,Note
+Classification Accuracy,Correct classifications / Total tests,28 correct,28 total tests,100.0%,>= 95%,PASS,0 misclassified
+Extraction Accuracy (avg),Sum of per-run accuracy / N,2615.9% (sum of all runs),28 runs,93.4%,>= 90%,PASS,Min=88.0% | Max=98.5% | Runs below 90%: 3
+PII Recall (macro avg per run),Mean of per-run TP/(TP+FN),2772.6% (sum per-run recall),28 runs,99.0%,>= 95%,PASS,Aggregate: 157 TP / 160 GT items = 98.1%
+PII Recall (aggregate),Total TP / Total GT PII items,157 TP across all runs,160 GT PII items,98.1%,>= 95%,PASS,FN (missed): 3
+PII Precision (macro avg per run),Mean of per-run TP/(TP+FP),2701.0% (sum per-run precision),28 runs,96.5%,>= 90%,PASS,Aggregate: 157 TP / (157+9) detections = 94.6%
+PII Precision (aggregate),Total TP / (Total TP + Total FP),157 TP,166 total detections,94.6%,>= 90%,PASS,FP (false positives): 9
+Workflow Pass Rate,PASS count / Total tests,28 PASS,28 total tests,100.0%,>= 90%,PASS,FAIL count: 0 | Self-repair triggered: 3
+Average Latency,Sum of latencies / N,220.97s (total processing time),28 runs,7.89s,~8 s,PASS,Min=4.56s | Max=13.80s | Runs <=8s: 16/28
+p95 Latency,95th percentile of sorted latencies,Value at index 27 of sorted list,28 runs sorted ascending,12.99s,—,PASS,Median (p50)=7.26s
+Extraction — financial_document,Avg accuracy for this doc type,Sum accuracy across 5 runs,5 runs,92.4%,>= 90%,PASS,Min=90.2% | Max=94.3%
+Extraction — resume,Avg accuracy for this doc type,Sum accuracy across 6 runs,6 runs,94.4%,>= 90%,PASS,Min=92.7% | Max=97.0%
+Extraction — job_offer,Avg accuracy for this doc type,Sum accuracy across 4 runs,4 runs,95.3%,>= 90%,PASS,Min=92.6% | Max=98.5%
+Extraction — medical_record,Avg accuracy for this doc type,Sum accuracy across 3 runs,3 runs,92.4%,>= 90%,PASS,Min=89.4% | Max=96.7%
+Extraction — id_document,Avg accuracy for this doc type,Sum accuracy across 4 runs,4 runs,92.5%,>= 90%,PASS,Min=88.1% | Max=96.1%
+Extraction — academic,Avg accuracy for this doc type,Sum accuracy across 6 runs,6 runs,93.2%,>= 90%,PASS,Min=88.0% | Max=96.6%
