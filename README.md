@@ -52,15 +52,17 @@ Output: report_{ts}.json  +  responsible_ai_{ts}.csv
 ### LLM Fallback Chain
 
 ```
-Groq (llama-3.1-8b-instant)  ← Primary, ~1.5 s, 300+ tokens/sec
+Groq (llama-3.1-8b-instant)       ← Primary, ~1.5 s, 300+ tokens/sec
     ↓ rate-limit / error
-Groq (backup key)             ← Rate-limit escape
+Groq (backup key)                  ← Rate-limit escape
     ↓ both keys fail
-Amazon Bedrock Claude 3.5 Haiku  ← Reliable fallback, AWS SLA
+Amazon Bedrock Claude 3.5 Haiku   ← Reliable fallback, AWS SLA
     ↓ timeout / error
-HuggingFace API               ← Tertiary
+HuggingFace API                    ← Tertiary
     ↓ unavailable
-Local phi-2                   ← Last resort, CPU-only, no API
+Ollama (llama3.1, local server)   ← Local fallback via ollama serve
+    ↓ server not running
+Local Llama (GGUF / Transformers) ← Offline last resort, CPU-only
 ```
 
 Tenacity retries each provider 3× with exponential backoff (2 s → 4 s → 8 s) before advancing.
@@ -73,7 +75,7 @@ Tenacity retries each provider 3× with exponential backoff (2 s → 4 s → 8 s
 - **Conditional self-repair** — fires only when extraction accuracy < 80%; max 1 attempt; merges without overwriting good values
 - **Hybrid PII redaction** — Microsoft Presidio baseline + LLM enhancement; custom regex recognisers for India Aadhaar, PAN, GSTIN, Passport, Voter ID, UPI, IFSC
 - **Universal document ingestion** — PDF (digital + scanned), DOCX, TXT, PPTX, XLSX, PNG, JPG, TIFF; Tesseract OCR fallback for image-only files
-- **4-tier LLM fallback** — zero downtime on any single provider failure
+- **5-tier LLM fallback** — Groq → Bedrock → HuggingFace → Ollama → Local Llama; zero downtime on any single provider failure
 - **Responsible AI logging** — every agent decision (input summary, output summary, LLM provider, latency, status) exported as structured CSV; meets GDPR Art. 22 explainability requirements
 - **FastAPI REST API** — `/process`, `/upload`, `/health` endpoints with Swagger UI
 - **Streamlit dashboard** — upload, sample selector, tabbed results (classification, extraction, validation, redaction, metrics, trace log), JSON/CSV download
@@ -134,8 +136,15 @@ BEDROCK_MODEL_ID=anthropic.claude-3-5-haiku-20241022-v1:0
 HF_API_KEY=your_hf_token
 HF_MODEL=meta-llama/Llama-3.1-8B-Instruct
 
-# ── Local phi-2 (Last Resort, optional) ─────────────────────────
-LOCAL_MODEL_PATH=./models/phi-2.gguf
+# ── Ollama (Local server fallback) ─────────────────────────────
+# Start server with: ollama serve
+# Pull model with:   ollama pull llama3.1
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+
+# ── Local Llama (GGUF fallback, optional) ───────────────────────
+# Set path to a local .gguf file for llama-cpp-python inference
+# LLAMA_MODEL_PATH=C:/models/llama-3.1-8b-q4.gguf
 
 # ── App Settings ─────────────────────────────────────────────────
 LOG_LEVEL=INFO
@@ -220,8 +229,7 @@ agentic-doc-processor/
 │   └── test_agents.py
 ├── config.py                   # Centralised settings via Pydantic
 ├── streamlit_app.py            # Streamlit dashboard
-├── requirements.txt
-└── presentation.tex            # LaTeX Beamer presentation slides
+└── requirements.txt
 ```
 
 ---
@@ -232,7 +240,7 @@ Every agent appends a `ResponsibleAILog` entry containing:
 
 - `agent_name`, `action`, `timestamp` (UTC)
 - `input_summary` (first 200 chars), `output_summary`
-- `llm_provider` (groq / bedrock_claude / huggingface / local_phi2)
+- `llm_provider` (groq / bedrock_claude / huggingface / ollama / local_llama)
 - `latency_ms`, `status`, `error_message`
 
 Logs are exported to `reports/responsible_ai_{ts}.csv` and surfaced in the **Responsible AI** tab of the Streamlit dashboard.
@@ -246,6 +254,7 @@ Logs are exported to `reports/responsible_ai_{ts}.csv` and surfaced in the **Res
 | Agent orchestration | LangGraph + LangChain |
 | Primary LLM | Groq — llama-3.1-8b-instant |
 | Fallback LLM | Amazon Bedrock — Claude 3.5 Haiku |
+| Local LLM | Ollama (llama3.1) + Local Llama (GGUF/Transformers) |
 | PII detection | Microsoft Presidio + spaCy + custom regex |
 | OCR | Tesseract + pytesseract + pdf2image |
 | Schema validation | Pydantic v2 |

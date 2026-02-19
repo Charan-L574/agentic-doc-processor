@@ -54,17 +54,22 @@ class Settings(BaseSettings):
     HF_TEMPERATURE: float = 0.0  # Greedy decoding
     HF_TIMEOUT: int = 30  # Reduced timeout
     
-    # Local Llama Fallback (GPU-enabled via Transformers) - SPEED OPTIMIZED
-    LOCAL_MODEL_NAME: str = "microsoft/phi-2"  # HuggingFace model ID (ungated, 2.7B params)
+    # Ollama Local Server (preferred local fallback — run: ollama serve)
+    OLLAMA_BASE_URL: str = "http://localhost:11434"  # Default Ollama server URL
+    OLLAMA_MODEL: str = "llama3.1"  # Ollama model name (run: ollama pull llama3.1)
+    OLLAMA_TIMEOUT: int = 60  # Seconds to wait for Ollama response
+
+    # Local Llama Fallback via Transformers (GPU/CPU) - used if Ollama unavailable
+    LOCAL_MODEL_NAME: str = "meta-llama/Llama-3.2-3B-Instruct"  # Llama 3.2 3B (ungated, fast on CPU)
     LLAMA_CONTEXT_LENGTH: int = 512  # Reduced for <4s latency
     LLAMA_TEMPERATURE: float = 0.0  # Greedy decoding for speed
     LLAMA_MAX_TOKENS: int = 64  # Aggressive limit for speed
     LLAMA_BATCH_SIZE: int = 256  # Optimized batch size
     USE_GPU_INFERENCE: bool = True  # Enable GPU acceleration if available
-    
-    # Legacy: kept for backwards compatibility
-    LLAMA_MODEL_PATH: Optional[str] = None  # Deprecated - using HF models now
-    LLAMA_N_GPU_LAYERS: int = 0  # Deprecated - auto-detected now
+
+    # GGUF model (optional — set path to a local .gguf file)
+    LLAMA_MODEL_PATH: Optional[str] = None  # e.g. C:/models/llama-3.1-8b-q4.gguf
+    LLAMA_N_GPU_LAYERS: int = 0  # GPU layers for GGUF (0 = CPU only)
     
     @property
     def llama_model_path_obj(self) -> Optional[Path]:

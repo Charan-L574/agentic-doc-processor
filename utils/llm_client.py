@@ -21,24 +21,29 @@ class LLMProvider(str, Enum):
     BEDROCK_CLAUDE = "bedrock_claude"
     BEDROCK_NOVA = "bedrock_nova"   # Amazon Nova Lite: 4s, same quality as Claude Haiku
     HUGGINGFACE = "huggingface"
-    LOCAL_LLAMA = "local_llama"
+    OLLAMA = "ollama"               # Local Ollama server (llama3.1 or any pulled model)
+    LOCAL_LLAMA = "local_llama"     # Raw transformers / GGUF fallback
 
 
 class LLMClient:
     """
     Unified LLM client with automatic fallback
-    
-    Primary: Groq (Llama 3.1 8B Instant - FASTEST, 300+ tokens/sec)
-    Secondary: AWS Bedrock Claude 3 Haiku
-    Tertiary: HuggingFace Inference API
-    Fallback: Local Llama3.1 (CPU-based, slowest)
+
+    Fallback chain:
+      Groq (primary, 300+ tok/s)
+      → Bedrock Nova Lite
+      → Bedrock Claude 3.5 Haiku
+      → HuggingFace Inference API
+      → Ollama (local server, llama3.1)
+      → Local Llama (GGUF / Transformers, CPU)
     """
-    
+
     def __init__(self):
         self.groq_client = None
         self.groq_client_b = None   # Backup Groq client (GROQ_API_KEY_B)
         self.bedrock_client = None
         self.huggingface_client = None
+        self.ollama_client = None   # Stores base URL string when Ollama is reachable
         self.llama_client = None
         self.llama_tokenizer = None
         self.llama_device = None
@@ -47,6 +52,7 @@ class LLMClient:
         self._initialize_groq_b()
         self._initialize_bedrock()
         self._initialize_huggingface()
+        self._initialize_ollama()
         self._initialize_llama()
     
     def _initialize_groq(self) -> None:
@@ -146,8 +152,82 @@ class LLMClient:
             logger.warning(f"Failed to initialize HuggingFace client: {type(e).__name__}: {e}", exc_info=True)
             self.huggingface_client = None
     
+    def _initialize_ollama(self) -> None:
+        """Check if Ollama server is running and mark available if so."""
+        try:
+            import requests
+            base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+            resp = requests.get(f"{base_url}/api/tags", timeout=3)
+            if resp.status_code == 200:
+                self.ollama_client = base_url
+                model = getattr(settings, 'OLLAMA_MODEL', 'llama3.1')
+                logger.info(f"Ollama server reachable at {base_url}, model='{model}'")
+            else:
+                self.ollama_client = None
+                logger.info("Ollama server returned non-200, skipping")
+        except Exception:
+            self.ollama_client = None
+            logger.info("Ollama server not reachable (start with: ollama serve)")
+
+    def _invoke_ollama(
+        self,
+        prompt: str,
+        system_prompt: str = None,
+        max_tokens: int = None,
+        temperature: float = None
+    ) -> Dict[str, Any]:
+        """Invoke local Ollama server (OpenAI-compatible /api/chat endpoint)."""
+        if not self.ollama_client:
+            raise RuntimeError("Ollama client not initialized")
+
+        import requests
+
+        model = getattr(settings, 'OLLAMA_MODEL', 'llama3.1')
+        timeout = getattr(settings, 'OLLAMA_TIMEOUT', 60)
+        max_tokens = max_tokens or 512
+        temperature = temperature if temperature is not None else 0.0
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": max_tokens}
+        }
+
+        start_time = time.time()
+        try:
+            resp = requests.post(
+                f"{self.ollama_client}/api/chat",
+                json=payload,
+                timeout=timeout
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            latency = time.time() - start_time
+            content = data.get("message", {}).get("content", "").strip()
+            return {
+                "content": content,
+                "provider": LLMProvider.OLLAMA,
+                "model": model,
+                "latency": latency,
+                "tokens": {
+                    "input": data.get("prompt_eval_count", 0),
+                    "output": data.get("eval_count", 0)
+                },
+                "system_prompt": system_prompt,
+                "user_prompt": prompt
+            }
+        except Exception as e:
+            logger.error(f"Ollama invocation error: {e}")
+            raise
+
     def _initialize_llama(self) -> None:
-        """Initialize local LLM client using GGUF (llama-cpp-python) or Transformers"""
+        """Initialize local LLM client using GGUF (llama-cpp-python) or Transformers."""
         # Check if GGUF model path is configured
         if hasattr(settings, 'LLAMA_MODEL_PATH') and settings.LLAMA_MODEL_PATH:
             self._initialize_llama_gguf()
@@ -838,15 +918,25 @@ class LLMClient:
         else:
             logger.info("HuggingFace client not available, skipping")
         
-        # Fallback to local Llama
+        # Fallback to Ollama (local server)
+        if self.ollama_client:
+            try:
+                logger.info(f"Falling back to Ollama ({getattr(settings, 'OLLAMA_MODEL', 'llama3.1')})")
+                return self._invoke_ollama(prompt, system_prompt, max_tokens, temperature)
+            except Exception as ollama_error:
+                logger.warning(f"Ollama fallback failed: {ollama_error}")
+                errors.append(f"Ollama: {ollama_error}")
+        else:
+            logger.info("Ollama not available, skipping")
+
+        # Fallback to local Llama (GGUF / Transformers)
         if self.llama_client:
             try:
-                logger.info("Falling back to local Llama3.1")
+                logger.info("Falling back to local Llama (GGUF/Transformers)")
                 return self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
-            
             except Exception as llama_error:
-                logger.error(f"Llama fallback also failed: {llama_error}")
-                errors.append(f"Llama: {llama_error}")
+                logger.error(f"Local Llama fallback also failed: {llama_error}")
+                errors.append(f"LocalLlama: {llama_error}")
                 raise RuntimeError(f"All LLM providers failed: {'; '.join(errors)}")
         else:
             logger.error("No fallback available")
@@ -866,12 +956,15 @@ class LLMClient:
             return self.bedrock_client is not None
         elif provider == LLMProvider.HUGGINGFACE:
             return self.huggingface_client is not None
+        elif provider == LLMProvider.OLLAMA:
+            return self.ollama_client is not None
         elif provider == LLMProvider.LOCAL_LLAMA:
             return self.llama_client is not None
         else:
             return (
-                self.bedrock_client is not None 
-                or self.huggingface_client is not None 
+                self.bedrock_client is not None
+                or self.huggingface_client is not None
+                or self.ollama_client is not None
                 or self.llama_client is not None
             )
     
