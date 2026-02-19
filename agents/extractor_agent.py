@@ -236,28 +236,26 @@ Output: {
 
     EXTRACTION_PROMPT_TEMPLATE = """You are extracting structured data from a {doc_type} document.
 
-STEP 1 — Read the example carefully to understand expected field names and format:
+STEP 1 — Study this correctly extracted example for a {doc_type}:
 {few_shot_examples}
 
-STEP 2 — Extract EVERY field listed below from the document. You MUST include ALL fields in your JSON output, even if the value is null or [].
-
-REQUIRED FIELDS FOR {doc_type_upper}:
-{field_checklist}
+STEP 2 — Extract at least 15 relevant fields from the document below that best identify and characterise it as a {doc_type}. Choose the most meaningful fields for this document type.
 
 STEP 3 — Rules:
-- Use EXACTLY the field names listed above — no aliases, no renamed keys
+- Use snake_case field names (e.g. candidate_name, date_of_birth, company_name)
+- Match field names from the example above as closely as possible
 - dates → YYYY-MM-DD format
 - money → float without $ or commas
 - names → Title Case
-- list fields (work_experience, education, skills, certifications, medications, courses, etc.) → ALWAYS return as array, use [] if none
+- list fields (work_experience, education, skills, certifications, medications, courses, etc.) → ALWAYS return as array, use [] if none found
 - work_experience: each entry MUST have: job_title, employer, start_date, end_date, responsibilities
 - education: each entry MUST have: degree, institution, graduation_date, gpa
-- NEVER skip a field — use null for missing scalars, [] for missing lists
+- Use null for missing scalar fields, [] for missing list fields
 
 DOCUMENT:
 {document_text}
 
-Return ONLY valid JSON. No markdown, no explanation, no extra keys outside the list above."""
+Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
     
     SYSTEM_PROMPT = "Document extraction engine. Return JSON only with exact schema field names. Dates=YYYY-MM-DD, money=float, missing=null."
     
@@ -427,14 +425,10 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys outside the l
         """
         # Get few-shot example for this document type
         few_shot_examples = self.FEW_SHOT_EXAMPLES.get(doc_type, "")
-        schema_fields = self.SCHEMA_FIELDS.get(doc_type, [])
-        field_checklist = "\n".join(f"  - {f}" for f in schema_fields)
 
         prompt = self.EXTRACTION_PROMPT_TEMPLATE.format(
             doc_type=doc_type.value,
-            doc_type_upper=doc_type.value.upper().replace("_", " "),
             few_shot_examples=few_shot_examples,
-            field_checklist=field_checklist,
             document_text=chunk
         )
         
