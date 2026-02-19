@@ -1,1353 +1,829 @@
-%======================================================
-% AGENTIC DOCUMENT PROCESSOR — PRESENTATION
-% Compile with: pdflatex presentation.tex  (twice for refs)
-% Or upload to Overleaf for instant PDF
-%======================================================
+%==========================================================
+% AGENTIC DOCUMENT PROCESSOR — BEAMER PRESENTATION
+% Upload to Overleaf (pdflatex) — compile twice for refs
+%==========================================================
 \documentclass[aspectratio=169,t]{beamer}
 
-%-------- Theme & Colors --------
 \usetheme{Madrid}
 \usecolortheme{whale}
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{footline}[frame number]
-\setbeamerfont{title}{size=\Large,series=\bfseries}
 \setbeamerfont{frametitle}{size=\normalsize,series=\bfseries}
 
 %-------- Packages --------
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{colortbl}
 \usepackage{xcolor}
 \usepackage{tikz}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
-\usepackage{listings}
 \usepackage{fontawesome5}
-\usepackage{multicol}
 \usepackage{tcolorbox}
-\tcbuselibrary{skins,breakable}
+\tcbuselibrary{skins}
 \usepackage{array}
-\usepackage{makecell}
 \usepackage{newunicodechar}
 \newunicodechar{→}{\ensuremath{\rightarrow}}
-\newunicodechar{←}{\ensuremath{\leftarrow}}
 \newunicodechar{—}{---}
-\newunicodechar{–}{--}
-\newunicodechar{…}{...}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, shadows, decorations.pathreplacing}
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning,
+                shadows,backgrounds}
 
-%-------- Color Palette --------
+%-------- Colors --------
 \definecolor{primary}{RGB}{25,85,160}
 \definecolor{secondary}{RGB}{0,140,200}
-\definecolor{accent}{RGB}{255,140,0}
+\definecolor{accent}{RGB}{230,120,0}
 \definecolor{success}{RGB}{46,160,67}
-\definecolor{danger}{RGB}{211,47,47}
-\definecolor{lightgray}{RGB}{245,245,250}
-\definecolor{darkgray}{RGB}{50,50,60}
-\definecolor{groqcolor}{RGB}{120,50,180}
-\definecolor{bedrockcolor}{RGB}{35,135,80}
-\definecolor{codegreen}{RGB}{50,150,50}
-\definecolor{codepurple}{RGB}{130,0,180}
-\definecolor{codegray}{RGB}{100,100,100}
+\definecolor{danger}{RGB}{200,50,50}
+\definecolor{lgray}{RGB}{245,246,250}
+\definecolor{groqcol}{RGB}{110,45,170}
+\definecolor{brcol}{RGB}{30,120,60}
 
 \setbeamercolor{palette primary}{bg=primary}
 \setbeamercolor{palette secondary}{bg=secondary}
 \setbeamercolor{palette quaternary}{bg=primary}
-\setbeamercolor{title}{fg=white}
 \setbeamercolor{block title}{bg=primary,fg=white}
 \setbeamercolor{alerted text}{fg=accent}
 
-%-------- Code Listings --------
-\lstset{
-  basicstyle=\ttfamily\scriptsize,
-  keywordstyle=\color{primary}\bfseries,
-  stringstyle=\color{codegreen},
-  commentstyle=\color{codegray}\itshape,
-  numberstyle=\tiny\color{codegray},
-  numbers=left,
-  stepnumber=1,
-  showstringspaces=false,
-  breaklines=true,
-  frame=single,
-  rulecolor=\color{secondary!40},
-  backgroundcolor=\color{lightgray},
-  tabsize=2,
-  language=Python,
-  xleftmargin=1em,
-  xrightmargin=0.5em,
-  literate=
-    {->}{{$\rightarrow$}}2
-    {→}{{$\rightarrow$}}1
-    {—}{{---}}1
-    {–}{{--}}1
-    {…}{{...}}1,
-}
-
-%-------- TColorBox Styles --------
+%-------- tcolorbox helpers --------
 \tcbset{
-  mybox/.style={
-    enhanced, colback=lightgray, colframe=primary,
-    fonttitle=\bfseries\small, coltitle=white, attach boxed title to top left,
-    boxed title style={colback=primary, rounded corners=all},
-    sharp corners, boxrule=0.5pt, left=4pt, right=4pt, top=6pt
-  },
+  cblock/.style={enhanced,colback=lgray,colframe=primary!60,
+    sharp corners,boxrule=0.5pt,left=4pt,right=4pt,
+    top=2pt,bottom=2pt,fontupper=\ttfamily\scriptsize},
+  hibox/.style={enhanced,colback=#1!8,colframe=#1,
+    sharp corners,boxrule=0.8pt,left=5pt,right=5pt,
+    top=3pt,bottom=3pt},
+  titled/.style={enhanced,colback=lgray,colframe=primary,
+    fonttitle=\bfseries\small,coltitle=white,
+    attach boxed title to top left,
+    boxed title style={colback=primary,sharp corners},
+    sharp corners,boxrule=0.5pt,
+    left=5pt,right=5pt,top=8pt,bottom=4pt}
 }
 
-%-------- Title Slide Info --------
-\title[Agentic Doc Processor]{\textbf{Agentic Document Processor}\\[4pt]
-\large Local Pipeline with LangGraph + Amazon Bedrock}
-\subtitle{Prototype 2 — Intelligent Document Ingestion, Extraction, Validation \& Redaction}
-\author{\textbf{Presented by: [Your Name]}}
-\institute{Agentic AI Systems — Capstone Project}
+%-------- Meta --------
+\title[Agentic Doc Processor]{\textbf{Agentic Document Processor}}
+\subtitle{Classify · Extract · Validate · Redact · Report}
+\author{\textbf{[Your Name]}}
+\institute{Agentic AI Systems --- Capstone Project}
 \date{February 2026}
 
-%======================================================
+%==========================================================
 \begin{document}
-%======================================================
+%==========================================================
 
-%-------- TITLE FRAME --------
+%------ TITLE ------
 \begin{frame}[plain]
-\begin{tikzpicture}[remember picture, overlay]
-  % Background gradient bar
-  \fill[primary] (current page.north west) rectangle ([yshift=-2.2cm]current page.north east);
-  \fill[secondary!80] ([yshift=-2.2cm]current page.north west) rectangle ([yshift=-2.5cm]current page.north east);
-  \fill[accent] ([yshift=-2.5cm]current page.north west) rectangle ([yshift=-2.6cm]current page.north east);
-  % Bottom strip
-  \fill[primary!90] (current page.south west) rectangle ([yshift=0.7cm]current page.south east);
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[primary](current page.north west)
+    rectangle([yshift=-2cm]current page.north east);
+  \fill[accent]([yshift=-2cm]current page.north west)
+    rectangle([yshift=-2.15cm]current page.north east);
+  \fill[primary!80](current page.south west)
+    rectangle([yshift=0.6cm]current page.south east);
 \end{tikzpicture}
-
-\vspace{0.4cm}
-\begin{center}
-  {\color{white}\fontsize{22}{26}\selectfont\bfseries Agentic Document Processor}\\[6pt]
-  {\color{white!80}\fontsize{13}{16}\selectfont Local Pipeline · LangGraph · Amazon Bedrock}\\[10pt]
-  \color{accent}\rule{10cm}{1.5pt}\\[8pt]
-  {\color{white}\small Prototype 2 — Intelligent Document Ingestion, Classification, Extraction,\\
-  Validation, PII Redaction \& Responsible AI Reporting}
-\end{center}
 \vspace{0.5cm}
 \begin{center}
+  {\color{white}\fontsize{24}{29}\selectfont\bfseries
+    Agentic Document Processor}\\[6pt]
+  {\color{white!80}\large
+    LangGraph · Groq · Amazon Bedrock · Presidio}\\[10pt]
+  {\color{accent}\rule{9cm}{1.4pt}}\\[8pt]
+  {\color{white}\small
+    Classify \;·\; Extract \;·\; Validate \;·\; Redact \;·\; Report}
+\end{center}
+\vspace{0.55cm}
+\begin{center}
   \begin{tikzpicture}
-    \node[fill=white, rounded corners=6pt, inner sep=6pt, draw=accent, line width=1.2pt] {
+    \node[fill=white,rounded corners=5pt,inner sep=7pt,
+          draw=accent,line width=1pt]{%
       \footnotesize\color{primary}
-      \faCode~LangGraph \quad
-      \faCloud~Bedrock Claude 3.5 Haiku \quad
-      \faRobot~Multi-Agent \quad
-      \faShieldAlt~PII Redaction \quad
-      \faChartBar~Responsible AI
-    };
+      \faProjectDiagram~Multi-Agent \quad
+      \faRobot~LangGraph \quad
+      \faUserSecret~PII Redaction \quad
+      \faChartBar~Responsible AI};
   \end{tikzpicture}
 \end{center}
-\vspace{0.3cm}
-{\color{white!60}\centering\tiny February 2026 | Capstone Project Presentation}
 \end{frame}
 
-%-------- AGENDA --------
+%------ AGENDA ------
 \begin{frame}{Agenda}
 \begin{columns}[T]
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faList~Presentation Flow}]
-\begin{enumerate}\setlength\itemsep{5pt}
-  \item[\textcolor{accent}{\bfseries 1.}] \textbf{Problem Statement}\\
-       {\scriptsize Scope, pain points, industry need}
-  \item[\textcolor{accent}{\bfseries 2.}] \textbf{Solution Overview}\\
-       {\scriptsize What we built and why}
-  \item[\textcolor{accent}{\bfseries 3.}] \textbf{Tech Stack}\\
-       {\scriptsize Tools, frameworks, providers}
-  \item[\textcolor{accent}{\bfseries 4.}] \textbf{High-Level Architecture}\\
-       {\scriptsize Data flow \& agent orchestration}
-  \item[\textcolor{accent}{\bfseries 5.}] \textbf{Deep Dive: Codebase}\\
-       {\scriptsize File-by-file walkthrough}
+\begin{tcolorbox}[titled,title={\faList~Topics}]
+\begin{enumerate}\setlength\itemsep{5pt}\small
+  \item[\textcolor{accent}{\bfseries 1}]
+    Problem Statement
+  \item[\textcolor{accent}{\bfseries 2}]
+    Solution --- What \& Why
+  \item[\textcolor{accent}{\bfseries 3}]
+    High-Level Architecture
+  \item[\textcolor{accent}{\bfseries 4}]
+    Deep Dive: Codebase
 \end{enumerate}
 \end{tcolorbox}
-
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faChartLine~Evaluation \& Demo}]
-\begin{enumerate}\setlength\itemsep{5pt}
-  \item[\textcolor{accent}{\bfseries 6.}] \textbf{Evaluation Metrics}\\
-       {\scriptsize Accuracy, PII, latency results}
-  \item[\textcolor{accent}{\bfseries 7.}] \textbf{Salient Features}\\
-       {\scriptsize What makes it stand out}
-  \item[\textcolor{accent}{\bfseries 8.}] \textbf{Responsible AI}\\
-       {\scriptsize Trace logs, auditability}
-  \item[\textcolor{accent}{\bfseries 9.}] \textbf{Live Demo}\\
-       {\scriptsize Streamlit UI + API}
-  \item[\textcolor{accent}{\bfseries 10.}] \textbf{Future Scope}\\
-       {\scriptsize Roadmap \& extensions}
+\begin{tcolorbox}[titled,title={\faChartLine~Outcomes}]
+\begin{enumerate}\setlength\itemsep{5pt}\small
+  \item[\textcolor{accent}{\bfseries 5}]
+    Evaluation \& Performance
+  \item[\textcolor{accent}{\bfseries 6}]
+    Salient Features
+  \item[\textcolor{accent}{\bfseries 7}]
+    Live Demo
+  \item[\textcolor{accent}{\bfseries 8}]
+    Future Scope
 \end{enumerate}
 \end{tcolorbox}
 \end{columns}
 \end{frame}
 
-%======================================================
+%==========================================================
 \section{Problem Statement}
-%======================================================
+%==========================================================
 
 \begin{frame}{Problem Statement}
-\begin{tcolorbox}[enhanced, colback=danger!6, colframe=danger, sharp corners, boxrule=1pt,
-  title={\faExclamationTriangle~The Core Problem}, fonttitle=\bfseries, coltitle=white]
-\textbf{Organizations receive thousands of heterogeneous documents daily} — invoices, resumes, medical records, contracts, IDs, transcripts — and must manually classify, extract, validate, and redact sensitive data. This is:
-\begin{itemize}
-  \item \textbf{Slow}: Human reviewers process 10–50 docs/day vs thousands needed
-  \item \textbf{Error-prone}: ~30\% field extraction error rate in manual processes
-  \item \textbf{Privacy risk}: PII leaks in downstream systems without systematic redaction
-  \item \textbf{Non-auditable}: No structured trace of who/what acted on each document
-\end{itemize}
+\begin{tcolorbox}[hibox=danger,
+  title={\faExclamationTriangle~The Problem},
+  fonttitle=\bfseries\small,coltitle=white,
+  attach boxed title to top left,
+  boxed title style={colback=danger,sharp corners}]
+\small
+Organizations process thousands of heterogeneous documents daily ---
+invoices, resumes, medical records, IDs, transcripts ---
+requiring \textbf{manual classification, field extraction, and PII handling}.
+This is error-prone, slow, and non-auditable.
 \end{tcolorbox}
 
-\vspace{6pt}
+\vspace{8pt}
 \begin{columns}[T]
-\column{0.3\textwidth}
-\begin{tcolorbox}[enhanced, colback=accent!10, colframe=accent, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{\faFileAlt~Document Chaos}\\[4pt]
-\scriptsize PDFs, images, DOCX, TXT in 6+ categories with zero labeling
+\column{0.32\textwidth}
+\begin{tcolorbox}[hibox=danger]
+\centering\textbf{\faClock~Manual \& Slow}\\[4pt]
+\scriptsize Reviewers handle 10--50 docs/day.
+Complex multi-format documents require different tools per format.
 \end{tcolorbox}
-\column{0.3\textwidth}
-\begin{tcolorbox}[enhanced, colback=accent!10, colframe=accent, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{\faLock~PII Exposure}\\[4pt]
-\scriptsize SSN, Aadhaar, emails, DOBs flow unmasked into analytics pipelines
+\column{0.32\textwidth}
+\begin{tcolorbox}[hibox=danger]
+\centering\textbf{\faLock~PII Exposure}\\[4pt]
+\scriptsize SSN, Aadhaar, emails, DOBs leak unmasked into downstream
+analytics without systematic redaction.
 \end{tcolorbox}
-\column{0.3\textwidth}
-\begin{tcolorbox}[enhanced, colback=accent!10, colframe=accent, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{\faExclamationCircle~No Auditability}\\[4pt]
-\scriptsize GDPR/HIPAA require decision traces — manual processes leave no log
+\column{0.32\textwidth}
+\begin{tcolorbox}[hibox=danger]
+\centering\textbf{\faEye~No Audit Trail}\\[4pt]
+\scriptsize GDPR / HIPAA require decision traces ---
+manual processing leaves no structured log of
+who/what acted on each document.
 \end{tcolorbox}
+\end{columns}
+
+\vspace{8pt}
+\begin{columns}[T]
+\column{0.6\textwidth}
+\textbf{Document Types in Scope:}\quad
+\scriptsize
+\faReceipt~Financial \;
+\faUser~Resume \;
+\faBriefcase~Job Offer \;
+\faNotesMedical~Medical \;
+\faIdCard~Identity \;
+\faGraduationCap~Academic
+
+\column{0.38\textwidth}
+\textbf{Regulatory Drivers:}\quad
+\scriptsize GDPR · HIPAA · India DPDP Act 2023
 \end{columns}
 \end{frame}
 
-\begin{frame}{Problem Scope \& Industry Need}
-\begin{columns}[T]
-\column{0.55\textwidth}
-\textbf{Document Types in Scope:}
-\vspace{4pt}
+%==========================================================
+\section{Solution}
+%==========================================================
 
-\begin{tabular}{@{}lll@{}}
-\toprule
-\rowcolor{primary!15}
-\textbf{Type} & \textbf{Key Fields} & \textbf{PII Risk} \\
-\midrule
-\faReceipt~Financial & Amounts, invoices & Low \\
-\faUser~Resume & Name, email, phone & \textcolor{danger}{High} \\
-\faBriefcase~Job Offer & Salary, dates & Medium \\
-\faNotesMedical~Medical & Diagnosis, DOB & \textcolor{danger}{Critical} \\
-\faIdCard~Identity & ID\#, DOB, address & \textcolor{danger}{Critical} \\
-\faGraduationCap~Academic & GPA, student ID & Medium \\
-\bottomrule
-\end{tabular}
+\begin{frame}{Solution --- What \& Why}
+\begin{tcolorbox}[hibox=success,
+  title={\faRocket~What We Built},
+  fonttitle=\bfseries\small,coltitle=white,
+  attach boxed title to top left,
+  boxed title style={colback=success,sharp corners}]
+\small
+A \textbf{local, agentic pipeline} that ingests any document, routes it through
+\textbf{6 specialised AI agents} orchestrated by LangGraph, and produces
+\textbf{validated JSON + redacted text + Responsible AI audit log}.
+\end{tcolorbox}
 
 \vspace{8pt}
-\textbf{Regulatory Drivers:}
-\begin{itemize}\scriptsize
-  \item \textbf{GDPR} — right to erasure, data minimization
-  \item \textbf{HIPAA} — PHI protection in medical docs
-  \item \textbf{India DPDP Act 2023} — Aadhaar, PAN masking required
-\end{itemize}
-
-\column{0.42\textwidth}
-\begin{tcolorbox}[mybox, title={\faBullseye~Success Criteria}]
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{tcolorbox}[titled,title={\faQuestion~Why LangGraph?}]
 \begin{itemize}\small\setlength\itemsep{4pt}
-  \item[\textcolor{success}{\faCheckCircle}] Extraction accuracy $\geq$ \textbf{90\%}
-  \item[\textcolor{success}{\faCheckCircle}] PII Recall $\geq$ \textbf{95\%}
-  \item[\textcolor{success}{\faCheckCircle}] PII Precision $\geq$ \textbf{90\%}
-  \item[\textcolor{success}{\faCheckCircle}] Workflow success $\geq$ \textbf{90\%}
-  \item[\textcolor{success}{\faCheckCircle}] P95 latency $\leq$ \textbf{4 seconds}
-  \item[\textcolor{success}{\faCheckCircle}] Graceful LLM retry/fallback
-  \item[\textcolor{success}{\faCheckCircle}] Full Responsible AI audit log
+  \item \textbf{Shared state} --- one \texttt{DocumentState}
+        TypedDict flows through every node
+  \item \textbf{Conditional routing} --- self-repair fires
+        only when accuracy $<$ 80\%
+  \item \textbf{MemorySaver} --- checkpoints state after
+        every node; survives crashes
+  \item \textbf{Graph visualisation} --- auto-generates
+        Mermaid diagram of the pipeline
 \end{itemize}
 \end{tcolorbox}
-\end{columns}
-\end{frame}
-
-%======================================================
-\section{Solution Overview}
-%======================================================
-
-\begin{frame}{Our Solution — What \& Why}
-\begin{tcolorbox}[enhanced, colback=success!6, colframe=success, sharp corners, boxrule=1pt,
-  title={\faRocket~Solution: Agentic Document Processor}, fonttitle=\bfseries, coltitle=white]
-\textbf{A local, production-grade agentic pipeline} that ingests any document, runs it through 6 specialized AI agents orchestrated by LangGraph, and produces validated JSON + redacted output with a full Responsible AI audit trail.
-\end{tcolorbox}
-
-\vspace{8pt}
-\begin{columns}[T]
-\column{0.48\textwidth}
-\textbf{\faQuestion~Why LangGraph?}
-\begin{itemize}\small
-  \item \textbf{Stateful graph} — every agent reads/writes one shared \texttt{DocumentState} object
-  \item \textbf{Conditional routing} — self-repair fires only when accuracy $<$ 80\%
-  \item \textbf{Checkpointing} — \texttt{MemorySaver} persists state mid-pipeline
-  \item \textbf{Visual} — auto-generates Mermaid diagram of the graph
-\end{itemize}
 
 \column{0.48\textwidth}
-\textbf{\faQuestion~Why Amazon Bedrock + Groq?}
-\begin{itemize}\small
-  \item \textbf{Groq} — primary LLM, 300+ tokens/sec, $<$1.5s latency
-  \item \textbf{Bedrock Claude 3.5 Haiku} — reliable fallback with AWS SLA
-  \item \textbf{HuggingFace API} — tertiary fallback
-  \item \textbf{Local phi-2} — offline last resort (no API dependency)
-\end{itemize}
-\end{columns}
-\end{frame}
-
-%======================================================
-\section{Tech Stack}
-%======================================================
-
-\begin{frame}{Technology Stack}
-\begin{columns}[T]
-\column{0.32\textwidth}
-\begin{tcolorbox}[mybox, title={\faCode~Core Framework}]
-\begin{itemize}\scriptsize\setlength\itemsep{3pt}
-  \item \textbf{Python 3.11}
-  \item \textbf{LangGraph} — agent orchestration
-  \item \textbf{LangChain} — document loaders
-  \item \textbf{Pydantic v2} — schema validation
-  \item \textbf{FastAPI} — REST API
-  \item \textbf{Streamlit} — UI dashboard
-\end{itemize}
-\end{tcolorbox}
-
-\column{0.32\textwidth}
-\begin{tcolorbox}[mybox, title={\faCloud~LLM Providers}]
-\begin{itemize}\scriptsize\setlength\itemsep{3pt}
-  \item \textcolor{groqcolor}{\textbf{Groq}} — llama-3.1-8b-instant
-  \item \textcolor{bedrockcolor}{\textbf{Bedrock}} — Claude 3.5 Haiku
-  \item \textbf{HuggingFace} — Llama 3.1
-  \item \textbf{Local phi-2} — offline fallback
-  \item \textbf{Tenacity} — retry/backoff
-\end{itemize}
-\end{tcolorbox}
-
-\column{0.32\textwidth}
-\begin{tcolorbox}[mybox, title={\faShieldAlt~Data \& Privacy}]
-\begin{itemize}\scriptsize\setlength\itemsep{3pt}
-  \item \textbf{Presidio} — PII detection engine
-  \item \textbf{spaCy} — NLP entity recognition
-  \item \textbf{Tesseract OCR} — image text extraction
-  \item \textbf{PyPDF2 / pdf2image} — PDF parsing
-  \item \textbf{structlog} — structured JSON logging
-  \item \textbf{FAISS} — optional vector lookup
+\begin{tcolorbox}[titled,title={\faQuestion~Why Groq + Bedrock?}]
+\begin{itemize}\small\setlength\itemsep{4pt}
+  \item \textbf{Groq} (primary) --- llama-3.1-8b-instant,
+        300+ tokens/sec, $\sim$1.5 s end-to-end
+  \item \textbf{Bedrock Claude 3.5 Haiku} (fallback) ---
+        AWS SLA, $\sim$3--8 s
+  \item \textbf{HuggingFace API} --- tertiary fallback
+  \item \textbf{Local phi-2} --- offline last resort,
+        zero API dependency
 \end{itemize}
 \end{tcolorbox}
 \end{columns}
-
-\vspace{6pt}
-\begin{center}
-\begin{tikzpicture}
-  \node[fill=primary!10, draw=primary, rounded corners=5pt, inner sep=5pt, font=\scriptsize] {
-    \faPython~Python 3.11 \quad
-    \faProjectDiagram~LangGraph \quad
-    \faCloud~Bedrock \quad
-    \faShieldAlt~Presidio \quad
-    \faEye~Tesseract \quad
-    \faServer~FastAPI \quad
-    \faDesktop~Streamlit \quad
-    \faFlask~Pytest
-  };
-\end{tikzpicture}
-\end{center}
 \end{frame}
 
-%======================================================
-\section{High-Level Architecture}
-%======================================================
+%==========================================================
+\section{Architecture}
+%==========================================================
 
-\begin{frame}{High-Level Architecture — Data Flow}
+\begin{frame}{High-Level Architecture}
 \centering
-\resizebox{0.96\textwidth}{!}{%
+\resizebox{0.97\textwidth}{!}{%
 \begin{tikzpicture}[
-  node distance=1.5cm,
-  agent/.style={rectangle, rounded corners=8pt, minimum width=2.4cm, minimum height=0.95cm,
-    text centered, draw=primary, fill=secondary!12, font=\small\bfseries, text width=2.4cm,
-    drop shadow={shadow xshift=1.5pt, shadow yshift=-1.5pt, fill=black!15}},
-  io/.style={rectangle, rounded corners=5pt, minimum width=2cm, minimum height=0.8cm,
-    text centered, draw=darkgray, fill=lightgray, font=\scriptsize, text width=2.2cm},
-  decision/.style={diamond, minimum width=2.2cm, minimum height=1.1cm,
-    text centered, draw=accent, fill=accent!15, font=\scriptsize\bfseries, aspect=2},
-  llm/.style={rectangle, rounded corners=4pt, minimum width=2cm, minimum height=0.7cm,
-    text centered, draw=groqcolor, fill=groqcolor!10, font=\scriptsize, text width=2.2cm},
-  flow/.style={->, >=Stealth, thick, draw=primary!70},
-  backflow/.style={->, >=Stealth, thick, draw=accent, dashed},
-  lflow/.style={->, >=Stealth, thin, draw=groqcolor!60, dashed}
+  node distance=0.9cm and 1.1cm,
+  ag/.style={rectangle,rounded corners=7pt,
+    minimum width=2.1cm,minimum height=0.85cm,
+    draw=primary,fill=secondary!12,
+    font=\small\bfseries,text centered,text width=2.1cm,
+    drop shadow},
+  io/.style={rectangle,rounded corners=4pt,
+    minimum width=1.9cm,minimum height=0.75cm,
+    draw=darkgray!60,fill=lgray,
+    font=\scriptsize,text centered,text width=1.9cm},
+  dc/.style={diamond,minimum width=1.8cm,minimum height=0.9cm,
+    draw=accent,fill=accent!12,
+    font=\scriptsize\bfseries,text centered,aspect=2},
+  llm/.style={rectangle,rounded corners=3pt,
+    minimum width=1.9cm,minimum height=0.6cm,
+    font=\scriptsize,text centered,text width=1.9cm},
+  fl/.style={->,>=Stealth,thick,draw=primary!70},
+  bk/.style={->,>=Stealth,thick,dashed,draw=accent},
+  lf/.style={->,>=Stealth,thin,dashed,draw=groqcol!50}
 ]
+% ---- main row ----
+\node[io](inp){\faFileAlt\\\textbf{Input Doc}\\\tiny PDF/TXT/IMG};
+\node[ag,right=of inp](ldr){\faDownload\\Document\\Loader};
+\node[ag,right=of ldr](cls){\faTags\\Classifier\\Agent};
+\node[ag,right=of cls](ext){\faCogs\\Extractor\\Agent};
+\node[ag,right=of ext](val){\faCheckDouble\\Validator\\Agent};
+\node[dc,right=of val](dec){Valid?};
+\node[ag,right=of dec](red){\faUserSecret\\Redactor\\Agent};
+\node[ag,right=of red](rep){\faChartBar\\Reporter\\Agent};
+\node[io,right=of rep](out){\faFileCode\\\textbf{Output}\\\tiny JSON + CSV};
 
-% Input
-\node[io] (input) {\faFileAlt\\\textbf{Document}\\\tiny PDF/TXT/DOCX/IMG};
+% ---- self-repair ----
+\node[ag,below=1cm of dec](rpn){\faWrench\\Self-Repair\\Node};
 
-% Document Loader
-\node[agent, right=1cm of input] (loader)
-  {\faDownload\\Document\\Loader};
+% ---- LLM row ----
+\node[llm,below=2cm of cls,fill=groqcol!12,draw=groqcol]
+  (g1){\textcolor{groqcol}{\textbf{Groq}}\\\scriptsize Primary};
+\node[llm,right=0.2cm of g1,fill=brcol!12,draw=brcol]
+  (g2){\textcolor{brcol}{\textbf{Bedrock}}\\\scriptsize Fallback};
+\node[llm,right=0.2cm of g2,fill=secondary!12,draw=secondary]
+  (g3){HuggingFace\\\scriptsize Tertiary};
+\node[llm,right=0.2cm of g3,fill=lgray,draw=darkgray!60]
+  (g4){Local phi-2\\\scriptsize Last resort};
 
-% Classifier
-\node[agent, right=1.3cm of loader] (classify)
-  {\faTags\\Classifier\\Agent};
+% ---- flows ----
+\draw[fl](inp)--(ldr);
+\draw[fl](ldr)--(cls);
+\draw[fl](cls)--(ext);
+\draw[fl](ext)--(val);
+\draw[fl](val)--(dec);
+\draw[fl](dec)--node[above,font=\tiny,text=success]{\faCheck~Yes}(red);
+\draw[fl](red)--(rep);
+\draw[fl](rep)--(out);
+\draw[bk](dec)--node[right,font=\tiny,text=danger]{\faTimes~No}(rpn);
+\draw[bk](rpn.west)--+(-0.35,0)|-
+  node[font=\tiny,left,text=accent,pos=0.7]{retry}(val.south);
 
-% Extractor
-\node[agent, right=1.3cm of classify] (extract)
-  {\faCogs\\Extractor\\Agent};
-
-% Validator
-\node[agent, right=1.3cm of extract] (validate)
-  {\faCheckDouble\\Validator\\Agent};
-
-% Decision
-\node[decision, right=1.3cm of validate] (decide)
-  {Valid?};
-
-% Self Repair (below decision)
-\node[agent, below=1.2cm of decide] (repair)
-  {\faWrench\\Self-Repair\\Node};
-
-% Redactor
-\node[agent, right=1.3cm of decide] (redact)
-  {\faUserSecret\\Redactor\\Agent};
-
-% Reporter
-\node[agent, right=1.3cm of redact] (report)
-  {\faChartBar\\Reporter\\Agent};
-
-% Output
-\node[io, right=1cm of report] (output)
-  {\faFileCode\\\textbf{JSON Report}\\\tiny + Redacted Text};
-
-% LLM Chain below agents
-\node[llm, below=2.4cm of classify, xshift=0.6cm] (llm1)
-  {\textcolor{groqcolor}{\textbf{Groq}} (Primary)};
-\node[llm, right=0.3cm of llm1] (llm2)
-  {\textcolor{bedrockcolor}{\textbf{Bedrock}} (Fallback)};
-\node[llm, right=0.3cm of llm2] (llm3)
-  {HuggingFace (Tertiary)};
-\node[llm, right=0.3cm of llm3] (llm4)
-  {Local phi-2 (Last resort)};
-
-% State store
-\node[io, below=0.5cm of repair, xshift=2.5cm] (state)
-  {\faDatabase\\\textbf{DocumentState}\\\tiny LangGraph shared state};
-
-% Flows
-\draw[flow] (input) -- (loader);
-\draw[flow] (loader) -- (classify);
-\draw[flow] (classify) -- (extract);
-\draw[flow] (extract) -- (validate);
-\draw[flow] (validate) -- (decide);
-\draw[flow] (decide) -- node[above,font=\scriptsize,text=success]{\faCheck~Yes} (redact);
-\draw[backflow] (decide) -- node[right,font=\scriptsize,text=danger]{\faTimes~No} (repair);
-\draw[backflow] (repair.west) -- +(-0.5,0) |- (validate.south) node[font=\scriptsize, pos=0.7, left, text=accent]{retry};
-\draw[flow] (redact) -- (report);
-\draw[flow] (report) -- (output);
-
-% LLM arrows
-\draw[lflow] (llm1.north) -- ++(0,0.4) -| (classify.south);
-\draw[lflow] (llm1.north) -- ++(0,0.4) -| (extract.south);
-\draw[lflow] (llm1.north) -- ++(0,0.4) -| (validate.south);
-\draw[lflow] (llm1.north) -- ++(0,0.4) -| (repair.south);
-\draw[lflow] (llm1.north) -- ++(0,0.4) -| (redact.south);
-
-% Fallback arrows
-\draw[lflow, draw=accent!50] (llm1) -- (llm2) node[above, font=\tiny, pos=0.5]{fallback};
-\draw[lflow, draw=accent!50] (llm2) -- (llm3) node[above, font=\tiny, pos=0.5]{fallback};
-\draw[lflow, draw=accent!50] (llm3) -- (llm4) node[above, font=\tiny, pos=0.5]{fallback};
-
+% ---- LLM taps ----
+\draw[lf](g1.north)--++(0,0.3)-|(cls.south);
+\draw[lf](g1.north)--++(0,0.3)-|(ext.south);
+\draw[lf](g1.north)--++(0,0.3)-|(val.south);
+\draw[lf](g1.north)--++(0,0.3)-|(rpn.south);
+\draw[lf](g1.north)--++(0,0.3)-|(red.south);
+\draw[lf,draw=accent!50](g1)--(g2)
+  node[above,font=\tiny,pos=0.5]{fallback};
+\draw[lf,draw=accent!50](g2)--(g3)
+  node[above,font=\tiny,pos=0.5]{fallback};
+\draw[lf,draw=accent!50](g3)--(g4)
+  node[above,font=\tiny,pos=0.5]{fallback};
 \end{tikzpicture}
 }
 \end{frame}
 
-\begin{frame}[fragile]{LangGraph State --- The Shared Backbone}
-\begin{columns}[T]
-\column{0.52\textwidth}
-\textbf{\faDatabase~\texttt{DocumentState} (TypedDict)}\\[4pt]
-{\scriptsize Defined in \texttt{graph/state.py} — single object passed between all nodes:}
+%==========================================================
+\section{Deep Dive}
+%==========================================================
 
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!50, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-class DocumentState(TypedDict):
-  # Input
-  file_path: str
-  raw_text: str
-  # Classification output
-  doc_type: Optional[DocumentType]
-  classification_result: ClassificationResult
-  # Extraction output
-  extracted_fields: Dict[str, Any]
-  # Validation + repair triggers
-  needs_repair: bool
-  repair_attempts: int
-  current_accuracy: float    # 0.0–1.0
-  missing_schema_fields: List[str]
-  # Redaction output
-  redacted_text: str
-  redaction_result: RedactionResult
-  # Responsible AI
-  trace_log: List[ResponsibleAILog]
-  agent_timings: Dict[str, float]
-  errors: List[str]
-  success: bool
-\end{lstlisting}
-\end{tcolorbox}
-
-\column{0.44\textwidth}
-\textbf{\faProjectDiagram~Graph Topology}\\[6pt]
-
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!50, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-START
-  +---> [classify]
-          +---> [extract]
-                  +---> [validate]
-                          +-- Valid? --+
-                          |           |
-                       [repair] <--+  |
-                          |          |
-                          +--> [validate] (loop, max 1x)
-                                     |
-                                     v
-                               [redact]
-                                  +---> [report]
-                                              +---> END
-\end{lstlisting}
-\end{tcolorbox}
-
-\vspace{6pt}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\scriptsize\textbf{MemorySaver checkpointing} — LangGraph stores state after each node. If a crash occurs, the pipeline resumes from the last completed node.
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-%======================================================
-\section{Deep Dive: Codebase}
-%======================================================
-
-\begin{frame}{Codebase Structure — File Map}
+\begin{frame}{Deep Dive --- Document Ingestion \& Classification}
 \begin{columns}[T]
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faFolder~Core Modules}]
-\begin{tabular}{@{}ll@{}}
-\texttt{config.py} & Settings, all constants \\
-\texttt{graph/state.py} & \texttt{DocumentState} schema \\
-\texttt{graph/workflow.py} & LangGraph pipeline \\
-\texttt{schemas/} & Pydantic field schemas \\
-\texttt{utils/llm\_client.py} & 4-tier LLM fallback \\
-\texttt{utils/retry\_decorator.py} & Tenacity retries \\
-\texttt{utils/document\_loader.py} & File ingestion \\
-\texttt{ocr/processor.py} & Tesseract OCR \\
-\end{tabular}
-\end{tcolorbox}
-
-\column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faRobot~Agents (6 Nodes)}]
-\begin{tabular}{@{}ll@{}}
-\texttt{agents/classifier\_agent.py} & LLM classify \\
-\texttt{agents/extractor\_agent.py} & JSON extract \\
-\texttt{agents/validator\_agent.py} & Schema check \\
-\texttt{agents/self\_repair\_node.py} & Re-extract \\
-\texttt{agents/redactor\_agent.py} & PII mask \\
-\texttt{agents/reporter\_agent.py} & CSV/JSON report \\
-\end{tabular}
-\end{tcolorbox}
-
-\vspace{4pt}
-\begin{tcolorbox}[mybox, title={\faServer~API \& UI}]
-\begin{tabular}{@{}ll@{}}
-\texttt{api/main.py} & FastAPI server \\
-\texttt{streamlit\_app.py} & Streamlit UI \\
-\texttt{tests/test\_agents.py} & Pytest suite \\
-\end{tabular}
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-\begin{frame}[fragile]{Stage 1 --- Document Ingestion (\texttt{utils/document\_loader.py})}
-\begin{columns}[T]
-\column{0.52\textwidth}
-\textbf{Entry point for every document upload.}\\[4pt]
-Uses \textbf{LangChain loaders} + \textbf{Tesseract OCR} to produce one unified \texttt{raw\_text: str}.
+\textbf{\faDownload~\texttt{utils/document\_loader.py}}\\[4pt]
+Single entry point. Detects format, picks correct loader, returns \texttt{raw\_text: str} into \texttt{DocumentState}.
 
 \vspace{6pt}
 \begin{tabular}{@{}lll@{}}
 \toprule
-\rowcolor{primary!12}\textbf{Format} & \textbf{Loader} & \textbf{Output} \\
+\rowcolor{primary!10}\textbf{Format} & \textbf{Loader} \\
 \midrule
-PDF (digital) & \texttt{PyPDFLoader} & text/page \\
-TXT / MD & \texttt{TextLoader} & raw string \\
-DOCX / DOC & \texttt{UnstructuredWord} & paragraphs \\
-PPTX / XLSX & \texttt{Unstructured*} & slide/cell text \\
-PNG/JPG/TIFF & \texttt{Tesseract OCR} & OCR string \\
-HTML & \texttt{UnstructuredFile} & stripped HTML \\
-Scanned PDF & \texttt{pdf2image} + Tesseract & page images→text \\
+PDF (digital)   & PyPDFLoader \\
+TXT / MD        & TextLoader \\
+DOCX            & UnstructuredWord \\
+PNG / JPG / TIFF & Tesseract OCR \\
+Scanned PDF     & pdf2image + Tesseract \\
 \bottomrule
 \end{tabular}
 
-\column{0.44\textwidth}
-\textbf{\faCode~Key Flow:}
-
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-def load_and_extract_text(file_path):
-    doc_type = detect_document_type(file_path)
-    
-    if doc_type == IMAGE:
-        # Tesseract --psm 3
-        text = pytesseract.image_to_string(
-            Image.open(path), lang="eng")
-    elif doc_type == PDF:
-        # PyPDFLoader per page
-        docs = PyPDFLoader(path).load()
-        text = " ".join(d.page_content
-                        for d in docs)
-    ...
-    return raw_text  # → DocumentState
-\end{lstlisting}
+\vspace{5pt}
+\begin{tcolorbox}[hibox=accent]
+\scriptsize
+\textbf{Scanned PDF fallback:} if \texttt{PyPDF2} returns $<$50 chars/page,
+converts the page to a PIL image and re-runs Tesseract.
+Handles mixed digital + scanned PDFs transparently.
 \end{tcolorbox}
 
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\scriptsize\textbf{Scanned PDF fallback:} if \texttt{PyPDF2} returns $<$50 chars/page, converts page to PIL image and runs Tesseract. Handles mixed digital+scanned documents.
+\column{0.48\textwidth}
+\textbf{\faTags~\texttt{agents/classifier\_agent.py}}\\[4pt]
+Classifies into one of 6 \texttt{DocumentType} values using an
+LLM with a \textbf{first-match decision-tree prompt}.
+
+\vspace{6pt}
+\begin{tcolorbox}[cblock]
+PROMPT (decision tree, 600-char window):\\
+1. Payment/billing? → financial\_document\\
+2. Work Experience / Skills? → resume\\
+3. Formal offer letter? → job\_offer\\
+4. Medical diagnosis? → medical\_record\\
+5. Photo ID / passport? → id\_document\\
+6. Institution grades/degree? → academic\\[4pt]
+Returns: \{doc\_type, confidence, reasoning\}
 \end{tcolorbox}
+
+\vspace{5pt}
+\begin{itemize}\scriptsize\setlength\itemsep{2pt}
+  \item 60+ alias mappings (``CV'', ``mark sheet'', ``appointment letter'')
+  \item 3-strategy JSON parser: direct \textrightarrow{} strip fences
+        \textrightarrow{} brace-count
+  \item Falls back to \texttt{UNKNOWN} --- never crashes
+\end{itemize}
 \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Stage 2 --- Classifier Agent (\texttt{agents/classifier\_agent.py})}
+\begin{frame}{Deep Dive --- Extraction \& Validation}
 \begin{columns}[T]
-\column{0.50\textwidth}
-\textbf{Classifies the document into one of 6 types.}
+\column{0.48\textwidth}
+\textbf{\faCogs~\texttt{agents/extractor\_agent.py}}\\[4pt]
+Maps \texttt{doc\_type} to a Pydantic schema, sends schema +
+few-shot example to LLM, returns structured JSON fields.
 
-\vspace{6pt}
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-PROMPT (first-match decision tree):
-1. Payment/billing present? 
-   → financial_document
-2. Work Experience OR Skills?
-   → resume
-3. Formal offer letter?
-   → job_offer
-4. Medical diagnosis (no billing)?
-   → medical_record
-5. Physical ID card / passport?
-   → id_document
-6. Institution-issued grades/degree?
-   → academic
-
-Returns JSON:
-{"doc_type": "resume",
- "confidence": 0.95,
- "reasoning": "Work Experience present"}
-\end{lstlisting}
-\end{tcolorbox}
-
-\column{0.46\textwidth}
-\textbf{Design decisions:}
-\begin{itemize}\small\setlength\itemsep{4pt}
-  \item Uses only \textbf{600 chars} (first + last 300) — enough to detect key signals with minimal tokens
-  \item \textbf{Alias normalization}: "CV", "appointment letter", "mark sheet", "student ID card" → all mapped to correct \texttt{DocumentType}
-  \item \textbf{3-strategy JSON parser}: direct → strip markdown fences → brace-counting
-  \item Falls back to \texttt{DocumentType.UNKNOWN} on parse failure (no crash)
-  \item Appends \texttt{ResponsibleAILog} entry with \texttt{llm\_provider} used
-\end{itemize}
-
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\scriptsize\textbf{Accuracy}: 42/42 correct on evaluation set (100\%) — decision tree prompt eliminates ambiguity at boundary cases (resume vs. job offer, college ID vs. transcript)
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-\begin{frame}[fragile]{Stage 3 --- Extractor Agent (\texttt{agents/extractor\_agent.py})}
-\begin{columns}[T]
-\column{0.50\textwidth}
-\textbf{Extracts all structured fields as validated JSON.}
-
-\vspace{4pt}
-{\scriptsize \textit{Schema-driven extraction with few-shot examples:}}
-\vspace{4pt}
-
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-# SCHEMA_MAP: doc_type → Pydantic schema
-SCHEMA_MAP = {
-  FINANCIAL_DOCUMENT: FinancialDocumentFields,
-  RESUME:             ResumeFields,
-  JOB_OFFER:          JobOfferFields,
-  MEDICAL_RECORD:     MedicalRecordFields,
-  ID_DOCUMENT:        IdDocumentFields,
-  ACADEMIC:           AcademicFields,
-}
-
-# Prompt includes:
-#  1. Full field list from Pydantic schema
-#  2. One complete worked example
-#  3. "Return ONLY JSON, null if missing"
-
-# Post-processing:
-#  - Dates → ISO 8601 (YYYY-MM-DD)
-#  - Amounts → float (strip $, ,)
-#  - "N/A"/"null" → Python None
-\end{lstlisting}
-\end{tcolorbox}
-
-\column{0.46\textwidth}
-\textbf{Chunking for long documents:}
-\vspace{4pt}
-\begin{itemize}\small\setlength\itemsep{4pt}
-  \item Texts $>$3000 chars are \textbf{chunked} with 200-char overlap
-  \item Each chunk extracted separately, results \textbf{merged} (non-null values never overwritten)
-  \item Prevents truncation of long resumes or contracts
-\end{itemize}
-
-\vspace{6pt}
-\textbf{Per-type Field Counts:}
-\vspace{4pt}
-
+\vspace{5pt}
 \begin{tabular}{@{}ll@{}}
 \toprule
-\rowcolor{primary!12}\textbf{Schema} & \textbf{Fields} \\
+\rowcolor{primary!10}\textbf{Schema} & \textbf{Fields} \\
 \midrule
-ResumeFields & 11 (incl. nested lists) \\
-MedicalRecordFields & 11 \\
-IdDocumentFields & 11 \\
+ResumeFields & 11 (incl.\ nested lists) \\
 JobOfferFields & 13 \\
 FinancialDocumentFields & 12 \\
+MedicalRecordFields & 11 \\
+IdDocumentFields & 11 \\
 AcademicFields & 10 \\
 \bottomrule
 \end{tabular}
 
+\vspace{5pt}
+\begin{itemize}\scriptsize\setlength\itemsep{2pt}
+  \item Texts $>$3000 chars chunked with 200-char overlap
+  \item Chunks merged --- non-null values never overwritten
+  \item Dates normalised to ISO\,8601; amounts to float
+  \item All fields optional --- missing → \texttt{null}, not crash
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{\faCheckDouble~\texttt{agents/validator\_agent.py}}\\[4pt]
+Hybrid rule-based + LLM check.
+
 \vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\scriptsize All optional fields — extraction never crashes; missing fields become \texttt{null} and trigger self-repair only if schema-priority threshold missed.
+\begin{enumerate}\scriptsize\setlength\itemsep{3pt}
+  \item \textbf{Alias normalisation} --- ``dob'' → \texttt{date\_of\_birth},
+        ``experience'' → \texttt{work\_experience} (60+ aliases)
+  \item \textbf{Regex format checks} --- email, phone, ISO dates,
+        currency amounts (warnings only, not blockers)
+  \item \textbf{Priority field presence} --- top-5 schema fields per type;
+        $<$80\% present → \texttt{needs\_repair = True}
+  \item \textbf{LLM semantic check} --- edge cases; defaults to
+        \texttt{is\_valid = True} to avoid false negatives
+\end{enumerate}
+
+\vspace{5pt}
+\begin{tcolorbox}[cblock]
+FIELD\_PRIORITIES = \{\\
+\ "resume": ["candidate\_name","email",\\
+\ \quad"phone","work\_experience","education"],\\
+\ "medical\_record": ["patient\_name",\\
+\ \quad"date\_of\_birth","diagnosis",...],\\
+\ ...\}
 \end{tcolorbox}
 \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Stage 4 --- Validator \& Self-Repair (\texttt{validator\_agent.py} / \texttt{self\_repair\_node.py})}
+\begin{frame}{Deep Dive --- Self-Repair \& Redaction}
 \begin{columns}[T]
-\column{0.50\textwidth}
-\textbf{ValidatorAgent — Hybrid Rule-based + LLM}\\[4pt]
-\begin{enumerate}\small\setlength\itemsep{3pt}
-  \item \textbf{Alias normalization} — maps "experience" → \texttt{work\_experience}, "dob" → \texttt{date\_of\_birth} (60+ aliases)
-  \item \textbf{Regex format checks} — email, phone, ISO dates, amounts — \textit{warnings only, not blockers}
-  \item \textbf{Priority field presence} — top 5 fields per doc type must be present; if $<$80\% → \texttt{needs\_repair=True}
-  \item \textbf{LLM semantic check} — for edge cases; defaults to \texttt{is\_valid=True}
+\column{0.48\textwidth}
+\textbf{\faWrench~\texttt{agents/self\_repair\_node.py}}\\[4pt]
+Triggered only when \texttt{needs\_repair = True}.
+
+\vspace{5pt}
+\begin{tcolorbox}[hibox=accent]
+\textbf{Mode 1 --- Field Repair}\\
+\scriptsize Fix specific errored fields. Sends bad fields +
+original text back to LLM.\\[5pt]
+\textbf{Mode 2 --- Full Re-extraction}\\
+\scriptsize Accuracy $<$ 80\%: resend complete schema + prior
+partial result + list of missing fields. LLM fills gaps
+without touching already-good values.
+\end{tcolorbox}
+
+\vspace{5pt}
+\begin{itemize}\scriptsize\setlength\itemsep{2pt}
+  \item 4-strategy JSON parser (direct → strip \texttt{\{\{\}\}} →
+        strip fences → brace-count scan with truncation recovery)
+  \item \textbf{Max 1 repair attempt} --- routes to Redactor regardless
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{\faUserSecret~\texttt{agents/redactor\_agent.py}}\\[4pt]
+3-phase hybrid PII detection:
+
+\vspace{4pt}
+\begin{enumerate}\scriptsize\setlength\itemsep{3pt}
+  \item \textbf{Presidio} (rule-based + spaCy ML):\\
+        \texttt{EMAIL}, \texttt{PHONE}, \texttt{US\_SSN},
+        \texttt{CREDIT\_CARD}, \texttt{PERSON}, \texttt{LOCATION}
+  \item \textbf{Custom Indian regex recognisers}:\\
+        Aadhaar (12-digit), PAN, GSTIN, Passport, Voter ID, UPI, IFSC
+  \item \textbf{LLM enhancement} --- catches remaining PII categories
+        (DOB, medical ID, gender, tax ID); large exclusion list
+        prevents false-positives on job titles, tech terms, domains
 \end{enumerate}
 
 \vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-FIELD_PRIORITIES = {
-  "resume": ["candidate_name","email",
-     "phone","work_experience","education"],
-  "medical_record": ["patient_name",
-     "date_of_birth","diagnosis",
-     "physician_name","visit_date"],
-  ...
-}
-\end{lstlisting}
-\end{tcolorbox}
+\textbf{Merge} --- Presidio detections always kept;
+LLM detections added only if not already covered.
 
+\vspace{4pt}
+\begin{tcolorbox}[cblock]
+Replacements:\\
+[NAME\_REDACTED]  [EMAIL\_REDACTED]\\
+[PHONE\_REDACTED] [SSN\_REDACTED]\\
+[DOB\_REDACTED]   [ADDRESS\_REDACTED]\\
+[CC\_REDACTED]    [TAX\_REDACTED]
+\end{tcolorbox}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Deep Dive --- LLM Fallback \& Reporting}
+\begin{columns}[T]
 \column{0.46\textwidth}
-\textbf{SelfRepairNode — Two Modes}\\[4pt]
-
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\textbf{Mode 1 — Field Repair:}\\
-\scriptsize Fix specific validation errors in existing fields. Sends errored fields + reference text to LLM.\\[4pt]
-\textbf{Mode 2 — Re-extraction:}\\
-\scriptsize Full re-extraction when accuracy $<$80\%. Sends complete schema + previous partial extraction + missing field list. LLM fills gaps without overwriting good values.
-\end{tcolorbox}
+\textbf{\faLayerGroup~\texttt{utils/llm\_client.py} --- 4-Tier Fallback}
 
 \vspace{6pt}
-\textbf{4-strategy robust JSON parser:}
-\begin{enumerate}\scriptsize\setlength\itemsep{2pt}
-  \item Direct \texttt{json.loads()}
-  \item Strip double braces \texttt{\{\{...\}\}} (Claude artifact)
-  \item Extract from \texttt{```json ... ```} fences
-  \item Brace-counting scan with truncation recovery
-\end{enumerate}
-
-\vspace{4pt}
-\textbf{Budget}: Max \textbf{1 repair attempt} → routes to redact regardless.
-\end{columns}
-\end{frame}
-
-\begin{frame}{Stage 5 — Redactor Agent (\texttt{agents/redactor\_agent.py})}
-\begin{columns}[T]
-\column{0.50\textwidth}
-\textbf{Hybrid Presidio + LLM PII Detection}\\[4pt]
-
-\textbf{Phase 1 — Presidio (rule-based + ML):}
-\begin{itemize}\scriptsize\setlength\itemsep{2pt}
-  \item Standard recognizers: \texttt{EMAIL\_ADDRESS}, \texttt{PHONE\_NUMBER}, \texttt{US\_SSN}, \texttt{CREDIT\_CARD}, \texttt{PERSON}, \texttt{LOCATION}
-  \item \textbf{Custom Indian recognizers} (pattern-based):
-  \begin{itemize}\scriptsize
-    \item \texttt{IN\_AADHAAR} — \texttt{\textbackslash b[2-9]\textbackslash d\{3\}[\textbackslash s-]?\textbackslash d\{4\}\ldots}
-    \item \texttt{IN\_PAN} — \texttt{\textbackslash b[A-Z]\{5\}[0-9]\{4\}[A-Z]\textbackslash b}
-    \item \texttt{IN\_GSTIN} — 15-char GST number
-    \item India Passport, Voter ID, UPI, IFSC
-  \end{itemize}
-\end{itemize}
-
-\textbf{Phase 2 — LLM Enhancement:}
-\begin{itemize}\scriptsize\setlength\itemsep{2pt}
-  \item Sends full text with 10-category PII prompt
-  \item Large exclusion block prevents FP: domains, job titles, tech terms, Latin phrases
-  \item Returns JSON \texttt{\{pii\_detections: [...]\}}
-\end{itemize}
-
-\textbf{Phase 3 — Merge + Deduplicate:}
-\begin{itemize}\scriptsize\setlength\itemsep{2pt}
-  \item All Presidio detections kept (high precision baseline)
-  \item LLM detections added only if not already covered
-\end{itemize}
-
-\column{0.46\textwidth}
-\textbf{PII Types Detected (10 categories):}
-
-\vspace{4pt}
-\begin{tabular}{@{}ll@{}}
-\toprule
-\rowcolor{primary!12}\textbf{PIIType} & \textbf{Replacement} \\
-\midrule
-EMAIL & \texttt{[EMAIL\_REDACTED]} \\
-PHONE & \texttt{[PHONE\_REDACTED]} \\
-SSN / Aadhaar / PAN & \texttt{[SSN\_REDACTED]} \\
-CREDIT\_CARD & \texttt{[CC\_REDACTED]} \\
-NAME & \texttt{[NAME\_REDACTED]} \\
-ADDRESS & \texttt{[ADDRESS\_REDACTED]} \\
-DATE\_OF\_BIRTH & \texttt{[DOB\_REDACTED]} \\
-MEDICAL\_ID & \texttt{[MEDICAL\_REDACTED]} \\
-TAX\_ID & \texttt{[TAX\_REDACTED]} \\
-GENDER & \texttt{[GENDER\_REDACTED]} \\
-\bottomrule
-\end{tabular}
-
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\scriptsize\textbf{Result}: PII Recall \textbf{98.1\%} / Precision \textbf{94.6\%} on 28-document evaluation set with international documents (US, India, UK, Germany)
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-\begin{frame}[fragile]{Stage 6 --- Reporter Agent (\texttt{agents/reporter\_agent.py})}
-\begin{columns}[T]
-\column{0.50\textwidth}
-\textbf{Final node — produces 3 artifacts:}\\[6pt]
-
-\textbf{Artifact 1 — JSON Report} (\texttt{reports/report\_*.json})
-\begin{itemize}\scriptsize\setlength\itemsep{2pt}
-  \item Complete nested JSON: doc type, confidence, all extracted fields, validation status, redacted text, PII detections, metrics, full trace log
-\end{itemize}
-
-\textbf{Artifact 2 — Responsible AI CSV} (\texttt{reports/responsible\_ai\_*.csv})
-\begin{itemize}\scriptsize\setlength\itemsep{2pt}
-  \item Per-agent rows: \texttt{timestamp}, \texttt{agent\_name}, \texttt{action}, \texttt{input\_summary}, \texttt{output\_summary}, \texttt{latency\_ms}, \texttt{llm\_provider}
-  \item Audit trail meeting GDPR/HIPAA logging requirements
-\end{itemize}
-
-\textbf{Artifact 3 — Metrics} (in JSON + Streamlit UI)
-\begin{itemize}\scriptsize\setlength\itemsep{2pt}
-  \item Extraction accuracy, PII recall/precision, workflow success, P95 latency
-\end{itemize}
-
-\column{0.46\textwidth}
-\textbf{Extraction Accuracy Formula:}\\[4pt]
-
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-# Count non-null schema fields extracted
-non_null = sum(
-  1 for field in schema_fields
-  if extracted.get(field) not in 
-     (None, "", []))
-
-# Smart denominator:
-# < 10 fields: n/(n+1) avoids 
-#   penalizing sparse docs
-# >= 10 fields: strict schema ratio
-if non_null < 10:
-    accuracy = non_null / (non_null + 1)
-else:
-    accuracy = non_null / total_schema_fields
-\end{lstlisting}
-\end{tcolorbox}
-
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\scriptsize\textbf{Workflow success}: requires all 4 results non-None (\texttt{classification\_result}, \texttt{extraction\_result}, \texttt{validation\_result}, \texttt{redaction\_result})
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-\begin{frame}[fragile]{LLM Fallback Chain (\texttt{utils/llm\_client.py})}
-\begin{columns}[T]
-\column{0.50\textwidth}
-\textbf{4-Tier automatic fallback:}\\[6pt]
-
 \begin{tikzpicture}[
-  box/.style={rectangle, rounded corners=5pt, minimum width=4.8cm, minimum height=0.65cm,
-    text centered, draw=#1, fill=#1!10, font=\small\bfseries},
-  arr/.style={->, >=Stealth, thick, draw=danger, dashed}
+  b/.style={rectangle,rounded corners=4pt,minimum width=5.2cm,
+    minimum height=0.6cm,text centered,font=\small\bfseries,
+    draw=#1,fill=#1!10},
+  a/.style={->,>=Stealth,thick,dashed,draw=danger}
 ]
-\node[box=groqcolor] (g1) {\textcolor{groqcolor}{\faBolt~Groq Primary} \scriptsize(0.5–1.5s)};
-\node[box=groqcolor, below=0.3cm of g1] (g2) {\textcolor{groqcolor}{\faShieldAlt~Groq Backup Key} \scriptsize(rate-limit escape)};
-\node[box=bedrockcolor, below=0.3cm of g2] (b) {\textcolor{bedrockcolor}{\faCloud~Bedrock Claude 3.5 Haiku} \scriptsize(~3–8s)};
-\node[box=secondary, below=0.3cm of b] (hf) {\textcolor{secondary}{\faCloud~HuggingFace API} \scriptsize(~5–15s)};
-\node[box=darkgray, below=0.3cm of hf] (ll) {\textcolor{darkgray}{\faServer~Local phi-2} \scriptsize(CPU, no API)};
-
-\draw[arr] (g1.south) -- node[right,font=\tiny]{rate-limit/error} (g2.north);
-\draw[arr] (g2.south) -- node[right,font=\tiny]{both Groq keys fail} (b.north);
-\draw[arr] (b.south) -- node[right,font=\tiny]{timeout/error} (hf.north);
-\draw[arr] (hf.south) -- node[right,font=\tiny]{unavailable} (ll.north);
+\node[b=groqcol](n1)
+  {\textcolor{groqcol}{\faBolt~Groq Primary}\scriptsize\quad(1--1.5 s)};
+\node[b=groqcol,below=0.25cm of n1](n2)
+  {\textcolor{groqcol}{\faKey~Groq Backup Key}\scriptsize\quad(rate-limit)};
+\node[b=brcol,below=0.25cm of n2](n3)
+  {\textcolor{brcol}{\faCloud~Bedrock C3.5 Haiku}\scriptsize\quad(3--8 s)};
+\node[b=secondary,below=0.25cm of n3](n4)
+  {\textcolor{secondary}{\faCloudDownloadAlt~HuggingFace}\scriptsize\quad(5--15 s)};
+\node[b=darkgray!80,below=0.25cm of n4](n5)
+  {\textcolor{darkgray}{\faServer~Local phi-2}\scriptsize\quad(CPU, no API)};
+\draw[a](n1)--(n2)node[right,font=\tiny,pos=0.5]{rate-limit/error};
+\draw[a](n2)--(n3)node[right,font=\tiny,pos=0.5]{both keys fail};
+\draw[a](n3)--(n4)node[right,font=\tiny,pos=0.5]{timeout/error};
+\draw[a](n4)--(n5)node[right,font=\tiny,pos=0.5]{unavailable};
 \end{tikzpicture}
 
-\column{0.46\textwidth}
-\textbf{Tenacity Retry Wrapper} (\texttt{utils/retry\_decorator.py}):
-
 \vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-@retry(
-  stop=stop_after_attempt(3),
-  wait=wait_exponential(
-    multiplier=2, min=2, max=10),
-  retry=retry_if_exception_type((
-    ClientError,         # AWS error
-    EndpointConnectionError,
-    TimeoutError,
-    ConnectionError,
-  )),
-  before_sleep=before_sleep_log(
-    logger, WARNING),
-  reraise=True
-)
-\end{lstlisting}
+\begin{tcolorbox}[cblock]
+Tenacity: 3 attempts/provider\\
+Backoff: 2 s → 4 s → 8 s
+\end{tcolorbox}
+
+\column{0.50\textwidth}
+\textbf{\faChartBar~\texttt{agents/reporter\_agent.py}}\\[4pt]
+Final node. Produces \textbf{3 artifacts}:
+
+\vspace{5pt}
+\begin{tcolorbox}[titled,title={\faFileCode~Artifact 1 --- JSON Report}]
+\scriptsize
+Full nested JSON: doc type, confidence, all extracted fields,
+validation status, redacted text, PII detections, metrics, full trace log.
+Saved to \texttt{reports/report\_\{ts\}.json}.
 \end{tcolorbox}
 
 \vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\scriptsize Retry schedule: attempt 1 → wait 2s → attempt 2 → wait 4s → attempt 3 → wait 8s → then advance to next LLM provider
+\begin{tcolorbox}[titled,title={\faTable~Artifact 2 --- Responsible AI CSV}]
+\scriptsize
+Per-agent rows: \texttt{agent\_name}, \texttt{action},
+\texttt{timestamp}, \texttt{latency\_ms}, \texttt{llm\_provider},
+\texttt{status}. Meets GDPR Art.~22 explainability requirements.
+\end{tcolorbox}
+
+\vspace{4pt}
+\begin{tcolorbox}[titled,title={\faTachometerAlt~Artifact 3 --- Metrics}]
+\scriptsize
+Extraction accuracy, PII recall/precision, workflow success rate,
+P95 latency. Displayed in Streamlit dashboard.
 \end{tcolorbox}
 \end{columns}
 \end{frame}
 
-%======================================================
-\section{Evaluation \& Performance}
-%======================================================
+%==========================================================
+\section{Evaluation}
+%==========================================================
 
-\begin{frame}{Evaluation — Dataset \& Methodology}
+\begin{frame}{Evaluation \& Performance}
 \begin{columns}[T]
-\column{0.48\textwidth}
-\textbf{\faDatabase~Evaluation Dataset}\\[4pt]
-\begin{tcolorbox}[mybox, title={evaluation\_dataset\_v2.csv}]
-\begin{itemize}\small\setlength\itemsep{3pt}
-  \item \textbf{28 documents} across all 6 types
-  \item International coverage: US, India, UK, Germany, Canada
-  \item Includes edge cases:
-    \begin{itemize}\scriptsize
-      \item Scanned Aadhaar, German national ID
-      \item Medical records with Indian + US formats
-      \item Complex multi-page resumes
-      \item CMU/MIT/Oxford academic transcripts
-    \end{itemize}
-  \item Ground truth: \texttt{ground\_truth\_class}, \texttt{ground\_truth\_fields}, \texttt{ground\_truth\_pii}
-  \item Additional \textbf{6 sample docs} (\texttt{sample\_dataset.csv}) for demo
-\end{itemize}
-\end{tcolorbox}
-
-\column{0.48\textwidth}
-\textbf{\faMicroscope~Evaluation Methodology}\\[4pt]
-\begin{tcolorbox}[mybox, title={How Metrics Are Computed}]
-\textbf{Extraction Accuracy:}\\
-\scriptsize Schema-field overlap ratio. Non-null extracted fields / total schema fields. Alias-aware (60+ field aliases checked).\\[4pt]
-\textbf{PII Recall:}\\
-\scriptsize True positives / (True pos + False neg). Every PII instance in ground truth checked against redacted output.\\[4pt]
-\textbf{PII Precision:}\\
-\scriptsize True positives / (True pos + False pos). Checks that Redactor doesn't mask non-PII text.\\[4pt]
-\textbf{Latency:}\\
-\scriptsize Wall-clock time per agent tracked in \texttt{state["agent\_timings"]}. P95 computed across all 28 runs.
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Evaluation Results — All Metrics Pass}
-\begin{columns}[T]
-\column{0.55\textwidth}
+\column{0.52\textwidth}
 
 \begin{tikzpicture}
 \begin{axis}[
-  xbar,
-  width=7.5cm, height=6cm,
+  xbar,width=7.6cm,height=5.5cm,
   xlabel={Score (\%)},
-  symbolic y coords={
-    Workflow Success,
-    PII Precision,
-    PII Recall,
-    Extraction Accuracy
-  },
+  symbolic y coords={WorkflowSuccess,PIIPrecision,
+    PIIRecall,ExtractionAccuracy},
+  yticklabels={Workflow Success,PII Precision,
+    PII Recall,Extraction Accuracy},
   ytick=data,
-  xmin=80, xmax=103,
+  xmin=80,xmax=102,
   nodes near coords,
   nodes near coords align={horizontal},
   nodes near coords style={font=\tiny\bfseries},
-  bar width=0.5cm,
-  every axis plot/.append style={fill opacity=0.85},
-  axis x line=bottom,
-  axis y line=left,
+  bar width=0.42cm,
+  axis x line=bottom,axis y line=left,
   tick label style={font=\scriptsize},
   xlabel style={font=\scriptsize},
   xtick={80,85,90,95,100},
+  legend style={at={(0.98,0.02)},anchor=south east,font=\tiny},
 ]
-% Targets (gray)
-\addplot[fill=black!25, bar shift=-0.28cm] coordinates {
-  (90,Extraction Accuracy)
-  (95,PII Recall)
-  (90,PII Precision)
-  (90,Workflow Success)
-};
-% Achieved (green)
-\addplot[fill=success!80, bar shift=0.28cm] coordinates {
-  (92.3,Extraction Accuracy)
-  (98.1,PII Recall)
-  (94.6,PII Precision)
-  (95.2,Workflow Success)
-};
-\legend{Target, Achieved}
+\addplot[fill=black!20,bar shift=-0.23cm] coordinates {
+  (90,ExtractionAccuracy)(95,PIIRecall)
+  (90,PIIPrecision)(90,WorkflowSuccess)};
+\addplot[fill=success!75,bar shift=0.23cm] coordinates {
+  (92.3,ExtractionAccuracy)(98.1,PIIRecall)
+  (94.6,PIIPrecision)(95.2,WorkflowSuccess)};
+\legend{Target,Achieved}
 \end{axis}
 \end{tikzpicture}
 
-\column{0.42\textwidth}
+\column{0.45\textwidth}
 \vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=1pt,
-  title={\faCheckCircle~All Targets Met}, fonttitle=\bfseries\small, coltitle=white]
-\begin{tabular}{@{}lll@{}}
-\toprule
-\textbf{Metric} & \textbf{Target} & \textbf{Result} \\
-\midrule
-\rowcolor{success!10}
-Extraction & $\geq$90\% & \textbf{92.3\%} \\
-\rowcolor{success!10}
-PII Recall & $\geq$95\% & \textbf{98.1\%} \\
-\rowcolor{success!10}
-PII Precision & $\geq$90\% & \textbf{94.6\%} \\
-\rowcolor{success!10}
-Workflow & $\geq$90\% & \textbf{95.2\%} \\
-\rowcolor{success!10}
-P95 Latency & $\leq$4s & \textbf{1.8s} \\
-\bottomrule
-\end{tabular}
-\end{tcolorbox}
+\textbf{Dataset:} 28 documents, 6 types, international coverage
+(US, India, UK, Germany, Canada)
 
 \vspace{6pt}
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\scriptsize\textbf{P95 Latency: 1.8s} — well under 4s target. Groq's 300+ tokens/sec enables sub-2s end-to-end with all 6 agents.
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Per-Document-Type Performance}
-
-\begin{center}
-\begin{tabular}{@{}lccccc@{}}
+\begin{tabular}{@{}llll@{}}
 \toprule
-\rowcolor{primary!15}
-\textbf{Document Type} & \textbf{Docs} & \textbf{Extraction} & \textbf{PII Recall} & \textbf{PII Prec.} & \textbf{Avg Latency} \\
-\midrule
-\faReceipt~Financial & 6 & \textcolor{success}{\textbf{94.1\%}} & 97.5\% & 95.2\% & 1.4s \\
-\faUser~Resume & 5 & \textcolor{success}{\textbf{91.8\%}} & 98.7\% & 94.1\% & 2.2s \\
-\faBriefcase~Job Offer & 4 & \textcolor{success}{\textbf{93.5\%}} & 98.9\% & 95.0\% & 1.6s \\
-\faNotesMedical~Medical Record & 5 & \textcolor{success}{\textbf{90.4\%}} & \textcolor{success}{\textbf{99.1\%}} & 93.8\% & 1.9s \\
-\faIdCard~Identity Document & 4 & \textcolor{success}{\textbf{92.7\%}} & \textcolor{success}{\textbf{98.4\%}} & 94.7\% & 1.5s \\
-\faGraduationCap~Academic & 4 & \textcolor{success}{\textbf{91.2\%}} & 97.8\% & 94.3\% & 1.7s \\
+\rowcolor{primary!12}
+\textbf{Metric} & \textbf{Target} & \textbf{Got} & \\
 \midrule
 \rowcolor{success!10}
-\textbf{Overall} & \textbf{28} & \textbf{92.3\%} & \textbf{98.1\%} & \textbf{94.6\%} & \textbf{1.8s} \\
+Extraction  & 90\% & \textbf{92.3\%} &
+  \textcolor{success}{\faCheckCircle} \\
+\rowcolor{success!10}
+PII Recall  & 95\% & \textbf{98.1\%} &
+  \textcolor{success}{\faCheckCircle} \\
+\rowcolor{success!10}
+PII Precision & 90\% & \textbf{94.6\%} &
+  \textcolor{success}{\faCheckCircle} \\
+\rowcolor{success!10}
+Workflow    & 90\% & \textbf{95.2\%} &
+  \textcolor{success}{\faCheckCircle} \\
+\rowcolor{success!10}
+P95 Latency & $\leq$4 s & \textbf{1.8 s} &
+  \textcolor{success}{\faCheckCircle} \\
 \bottomrule
 \end{tabular}
-\end{center}
 
 \vspace{8pt}
-\begin{columns}[T]
-\column{0.32\textwidth}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{Medical PII: 99.1\%}\\
-\scriptsize Highest recall — critical for HIPAA compliance. Presidio + LLM hybrid catches all PHI including Indian patient IDs
-\end{tcolorbox}
-\column{0.32\textwidth}
-\begin{tcolorbox}[enhanced, colback=primary!8, colframe=primary, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{Financial: Fastest}\\
-\scriptsize 1.4s average. Structured invoice format allows Groq to extract all fields in a single short completion
-\end{tcolorbox}
-\column{0.32\textwidth}
-\begin{tcolorbox}[enhanced, colback=accent!8, colframe=accent, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{Resume: Most Complex}\\
-\scriptsize 2.2s — nested arrays (work experience, education, skills) require longer LLM output
+\begin{tcolorbox}[hibox=success]
+\scriptsize
+\textbf{All 5 targets met.}
+Groq's 300+ tokens/sec drives sub-2 s
+end-to-end latency across all 6 agents.
+Medical PII recall \textbf{99.1\%} --- highest of all types.
 \end{tcolorbox}
 \end{columns}
 \end{frame}
 
-%======================================================
+%==========================================================
 \section{Salient Features}
-%======================================================
+%==========================================================
 
-\begin{frame}{Salient Features — What Makes It Stand Out}
+\begin{frame}{Salient Features}
 \begin{columns}[T]
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faProjectDiagram~Agentic Architecture}]
+
+\begin{tcolorbox}[titled,title={\faProjectDiagram~Agentic LangGraph Pipeline}]
 \scriptsize
-\textbf{LangGraph stateful graph} with conditional routing — not a simple chain. Each agent is a graph node. Self-repair fires only when needed (error-triggered), not in every run.\\[3pt]
-\textbf{MemorySaver checkpointing} — pipeline survives crashes and can resume from last completed node.
+Stateful graph --- \texttt{DocumentState} shared across all nodes.
+Conditional routing: self-repair fires \textit{only} when needed.
+\textbf{MemorySaver} checkpoints after every node; crash-resilient.
 \end{tcolorbox}
 
-\vspace{4pt}
-\begin{tcolorbox}[mybox, title={\faShieldAlt~International PII Coverage}]
+\vspace{5pt}
+\begin{tcolorbox}[titled,title={\faShieldAlt~International PII Coverage}]
 \scriptsize
-\textbf{Hybrid Presidio + LLM} detects local-format PII that generic Presidio misses:\\
-India Aadhaar (12-digit) · PAN · GSTIN · India Passport · Voter ID · UPI · IFSC · German NRW ID
+Presidio baseline + \textbf{custom Indian regex recognisers}:
+Aadhaar, PAN, GSTIN, Passport, Voter ID, UPI, IFSC.
+LLM fills gaps Presidio misses. Merge-deduplication prevents
+double-masking.
 \end{tcolorbox}
 
-\vspace{4pt}
-\begin{tcolorbox}[mybox, title={\faWrench~Self-Healing Pipeline}]
+\vspace{5pt}
+\begin{tcolorbox}[titled,title={\faWrench~Self-Healing Extraction}]
 \scriptsize
-\textbf{Intelligent self-repair}: 60+ field aliases + re-extraction mode fills gaps without overwriting good values. Brace-counting JSON parser handles truncated LLM responses.
+60+ field aliases + two-mode self-repair fills gaps
+without overwriting valid data.
+4-strategy JSON parser handles truncated / malformed LLM output.
 \end{tcolorbox}
 
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faBolt~4-Tier LLM Fallback}]
+
+\begin{tcolorbox}[titled,title={\faBolt~4-Tier Zero-Downtime LLM Chain}]
 \scriptsize
-Groq (300+ tps) → Bedrock (AWS SLA) → HuggingFace → Local phi-2. Zero downtime on any single provider failure. Tenacity ensures transient errors retry with exponential backoff.
+Groq \textrightarrow{} Bedrock \textrightarrow{} HuggingFace
+\textrightarrow{} Local phi-2.
+Tenacity retries with exponential backoff (2 s / 4 s / 8 s).
+No single provider failure can stop the pipeline.
 \end{tcolorbox}
 
-\vspace{4pt}
-\begin{tcolorbox}[mybox, title={\faBalanceScale~Responsible AI Logging}]
+\vspace{5pt}
+\begin{tcolorbox}[titled,title={\faBalanceScale~Responsible AI Logging}]
 \scriptsize
-Every agent decision — input summary, output summary, LLM provider used, latency — stored in structured \texttt{ResponsibleAILog} entries. Exported as CSV + JSON. Meets GDPR Article 22 explainability requirements.
+Every agent decision logged: \texttt{agent\_name},
+\texttt{llm\_provider}, \texttt{latency\_ms}, \texttt{status},
+input/output summary.
+Exported as \textbf{structured CSV} --- GDPR Art.~22 ready.
 \end{tcolorbox}
 
-\vspace{4pt}
-\begin{tcolorbox}[mybox, title={\faFileAlt~Universal Document Ingestion}]
+\vspace{5pt}
+\begin{tcolorbox}[titled,title={\faFileAlt~Universal Document Ingestion}]
 \scriptsize
-PDF (digital + scanned), DOCX, TXT, CSV, PPTX, XLSX, PNG, JPG, TIFF — all handled by LangChain loaders with Tesseract OCR fallback for image-only files.
+PDF (digital + scanned), DOCX, TXT, PPTX, XLSX, PNG, JPG, TIFF.
+Tesseract OCR fallback for image-only files.
+Auto-detects mixed digital+scanned PDFs.
 \end{tcolorbox}
+
 \end{columns}
 \end{frame}
 
-%======================================================
-\section{Responsible AI}
-%======================================================
-
-\begin{frame}[fragile]{Responsible AI --- Trace Logging System}
-\begin{columns}[T]
-\column{0.52\textwidth}
-\textbf{Every agent appends to \texttt{trace\_log[]}:}\\[4pt]
-
-\begin{tcolorbox}[enhanced, colback=lightgray, colframe=primary!40, sharp corners, boxrule=0.5pt]
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{lightgray}]
-@dataclass
-class ResponsibleAILog:
-    agent_name:      str   # "ClassifierAgent"
-    action:          str   # "classify_document"
-    input_summary:   str   # first 200 chars
-    output_summary:  str   # doc_type + confidence
-    timestamp:    datetime # UTC
-    latency_ms:    float   # wall-clock time
-    llm_provider:    str   # "groq" / "bedrock"
-    status:          str   # "success" / "error"
-    error_message:   str   # if failed
-\end{lstlisting}
-\end{tcolorbox}
-
-\vspace{4pt}
-\textbf{Outputs:}
-\begin{itemize}\scriptsize
-  \item \texttt{reports/responsible\_ai\_\{ts\}.csv} — machine-readable audit trail
-  \item \texttt{reports/report\_\{ts\}.json} — full nested report with trace
-  \item \textbf{Streamlit Responsible AI tab} — interactive table view
-\end{itemize}
-
-\column{0.44\textwidth}
-\textbf{\faTable~Sample Trace Log (CSV output):}
-
-\vspace{4pt}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{@{}lllll@{}}
-\toprule
-\rowcolor{primary!15}
-\textbf{Agent} & \textbf{Action} & \textbf{LLM} & \textbf{ms} & \textbf{Status} \\
-\midrule
-Classifier & classify & groq & 820 & success \\
-Extractor & extract & groq & 1240 & success \\
-Validator & validate & rule-based & 12 & success \\
-Redactor & redact & presidio+llm & 430 & success \\
-Reporter & report & — & 8 & success \\
-\midrule
-\textbf{Total} & & & \textbf{2510} & \textbf{success} \\
-\bottomrule
-\end{tabular}
-}
-
-\vspace{8pt}
-\begin{tcolorbox}[enhanced, colback=primary!8, colframe=primary, sharp corners, boxrule=0.8pt]
-\scriptsize \textbf{Auditability}: Every processing decision is traceable to a specific LLM provider, timestamp, and input text. Supports GDPR Art. 22 "meaningful information about the logic involved."
-\end{tcolorbox}
-\end{columns}
-\end{frame}
-
-%======================================================
+%==========================================================
 \section{Demo}
-%======================================================
+%==========================================================
 
-\begin{frame}{Demo — System Interfaces}
+\begin{frame}{Demo}
 \begin{columns}[T]
-\column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faDesktop~Streamlit UI (Port 8501)}]
+\column{0.50\textwidth}
+\begin{tcolorbox}[titled,title={\faDesktop~Streamlit UI --- \texttt{:8501}}]
 \begin{enumerate}\small\setlength\itemsep{4pt}
-  \item \textbf{File Upload} — drag-drop any PDF/TXT/DOCX/image
-  \item \textbf{Sample Selector} — 34 pre-loaded sample docs from \texttt{data/samples/}
-  \item \textbf{Results tabs}:
+  \item \textbf{Upload} any PDF / DOCX / TXT / image,
+        or select from \textbf{34 pre-loaded sample docs}
+  \item Results in tabbed view:
     \begin{itemize}\scriptsize
       \item Classification (type, confidence, reasoning)
-      \item Extraction (full JSON, all fields)
-      \item Validation (status, errors, warnings)
-      \item Redaction (side-by-side original vs masked)
+      \item Extraction (full JSON fields)
+      \item Validation (status, warnings)
+      \item Redaction (original vs.\ masked, side-by-side)
       \item Metrics (accuracy, PII scores)
       \item Responsible AI (trace log table)
     \end{itemize}
-  \item \textbf{Download} — JSON report + CSV audit log
+  \item \textbf{Download} JSON report + CSV audit log
 \end{enumerate}
 \end{tcolorbox}
 
-\column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faServer~FastAPI (Port 8000)}]
-\begin{itemize}\small\setlength\itemsep{4pt}
-  \item \texttt{GET /} — service info
-  \item \texttt{GET /health} — LLM availability check
-  \item \texttt{POST /process} — \scriptsize\texttt{\{"file\_path": "data/samples/resume.txt"\}}
-  \item \texttt{POST /upload} — multipart file upload
-  \item \texttt{GET /docs} — Swagger UI (auto-generated)
-\end{itemize}
+\column{0.46\textwidth}
+\begin{tcolorbox}[titled,title={\faServer~FastAPI --- \texttt{:8000/docs}}]
+\begin{tabular}{@{}ll@{}}
+\texttt{GET /health} & LLM availability \\
+\texttt{POST /process} & process by path \\
+\texttt{POST /upload} & multipart upload \\
+\end{tabular}
 \end{tcolorbox}
 
-\vspace{4pt}
-\begin{tcolorbox}[enhanced, colback=accent!10, colframe=accent, sharp corners, boxrule=0.8pt]
-\textbf{\faPlayCircle~Demo Flow:}\\
+\vspace{8pt}
+\begin{tcolorbox}[hibox=accent,
+  title={\faPlayCircle~Demo Steps},
+  fonttitle=\bfseries\small,coltitle=white,
+  attach boxed title to top left,
+  boxed title style={colback=accent,sharp corners}]
 \scriptsize
-1. Start: \texttt{streamlit run streamlit\_app.py}\\
-2. Upload \texttt{sample\_medical\_record.txt}\\
-3. Show classification → extraction JSON\\
-4. Show PII redaction (side-by-side)\\
-5. Show Responsible AI tab (trace log)\\
-6. Download JSON report
+\textbf{1.} \texttt{streamlit run streamlit\_app.py}\\[3pt]
+\textbf{2.} Upload \texttt{sample\_medical\_record.txt}\\[3pt]
+\textbf{3.} Walk through all 6 tabs\\[3pt]
+\textbf{4.} Show side-by-side PII redaction\\[3pt]
+\textbf{5.} Download JSON report
 \end{tcolorbox}
 \end{columns}
 \end{frame}
 
-%======================================================
+%==========================================================
 \section{Future Scope}
-%======================================================
+%==========================================================
 
 \begin{frame}{Future Scope}
 \begin{columns}[T]
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faMapSigns~Near-Term (3–6 months)}]
-\begin{itemize}\small\setlength\itemsep{4pt}
-  \item \textbf{Multi-page PDF support} — table extraction with Camelot/pdfplumber for financial statements
-  \item \textbf{Batch processing API} — async queue (\texttt{/batch} endpoint) for processing hundreds of docs via Celery
-  \item \textbf{FAISS semantic lookup} — retrieve similar past documents to augment extraction context
-  \item \textbf{Flowise integration} — drag-and-drop visual workflow editor for non-technical users
+\begin{tcolorbox}[titled,title={\faMapSigns~Near-Term (3--6 months)}]
+\begin{itemize}\small\setlength\itemsep{5pt}
+  \item \textbf{Batch processing} --- async Celery queue
+        for processing hundreds of docs via \texttt{/batch}
+        endpoint
+  \item \textbf{Table extraction} --- Camelot / pdfplumber
+        for complex financial statements (multi-page PDFs)
+  \item \textbf{FAISS semantic lookup} --- retrieve similar
+        past docs to augment extraction context
+        (scaffolding already in \texttt{utils/faiss\_manager.py})
+  \item \textbf{Multi-language OCR} --- Tesseract multi-lang
+        packs for Hindi, Arabic, Chinese documents
 \end{itemize}
 \end{tcolorbox}
 
 \column{0.48\textwidth}
-\begin{tcolorbox}[mybox, title={\faRocket~Long-Term (6–12 months)}]
-\begin{itemize}\small\setlength\itemsep{4pt}
-  \item \textbf{Fine-tuned classifier} — smaller, faster model trained on domain-specific docs (BERT/DistilBERT)
-  \item \textbf{Active learning loop} — human corrections feed back to improve extraction accuracy
-  \item \textbf{Cloud deployment} — Docker + AWS ECS/Lambda with S3 document storage
-  \item \textbf{Differential privacy} — add noise to aggregate metrics to protect sensitive statistics
-  \item \textbf{Multi-language OCR} — Arabic, Hindi, Chinese document support (Tesseract multi-lang)
+\begin{tcolorbox}[titled,title={\faRocket~Long-Term (6--12 months)}]
+\begin{itemize}\small\setlength\itemsep{5pt}
+  \item \textbf{Fine-tuned classifier} ---
+        DistilBERT trained on domain-specific docs;
+        replaces LLM for classification (faster, cheaper)
+  \item \textbf{Active learning loop} --- human corrections
+        feed back into training to improve extraction
+        accuracy over time
+  \item \textbf{Cloud deployment} ---
+        Docker + AWS ECS / Lambda with S3 document storage
+  \item \textbf{Differential privacy} --- calibrated noise
+        on aggregate metrics to protect sensitive statistics
 \end{itemize}
 \end{tcolorbox}
 \end{columns}
 \end{frame}
 
-%-------- SUMMARY / CONCLUSION --------
-\begin{frame}{Summary}
-\begin{tcolorbox}[enhanced, colback=primary!6, colframe=primary, sharp corners, boxrule=1.5pt,
-  title={\faStar~What We Built}, fonttitle=\bfseries, coltitle=white]
-\textbf{A fully local, production-grade agentic document processing pipeline} with 6 specialized AI agents orchestrated by LangGraph, delivering:
-\end{tcolorbox}
-
-\vspace{8pt}
-\begin{columns}[T]
-\column{0.24\textwidth}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{92.3\%}\\Extraction\\Accuracy
-\end{tcolorbox}
-\column{0.24\textwidth}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{98.1\%}\\PII\\Recall
-\end{tcolorbox}
-\column{0.24\textwidth}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{95.2\%}\\Workflow\\Success
-\end{tcolorbox}
-\column{0.24\textwidth}
-\begin{tcolorbox}[enhanced, colback=success!8, colframe=success, sharp corners, boxrule=0.8pt]
-\centering\small\textbf{1.8s}\\P95\\Latency
-\end{tcolorbox}
-\end{columns}
-
-\vspace{8pt}
-\begin{tabular}{@{}lll@{}}
-\textcolor{success}{\faCheckCircle~} & \textbf{LangGraph agentic graph} & Stateful, conditional routing, self-repair loop \\
-\textcolor{success}{\faCheckCircle~} & \textbf{4-tier LLM fallback} & Zero downtime on provider failure \\
-\textcolor{success}{\faCheckCircle~} & \textbf{Hybrid PII redaction} & Presidio + LLM, international document support \\
-\textcolor{success}{\faCheckCircle~} & \textbf{Responsible AI logging} & Full decision trace, GDPR/HIPAA ready \\
-\textcolor{success}{\faCheckCircle~} & \textbf{FastAPI + Streamlit} & REST API + interactive UI, both production-ready \\
-\end{tabular}
-\end{frame}
-
-%-------- FINAL SLIDE --------
+%------ THANK YOU ------
 \begin{frame}[plain]
-\begin{tikzpicture}[remember picture, overlay]
-  \fill[primary] (current page.north west) rectangle ([yshift=-2cm]current page.north east);
-  \fill[accent] ([yshift=-2cm]current page.north west) rectangle ([yshift=-2.15cm]current page.north east);
-  \fill[primary!85] (current page.south west) rectangle ([yshift=1.2cm]current page.south east);
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[primary](current page.north west)
+    rectangle([yshift=-1.8cm]current page.north east);
+  \fill[accent]([yshift=-1.8cm]current page.north west)
+    rectangle([yshift=-1.95cm]current page.north east);
+  \fill[primary!80](current page.south west)
+    rectangle([yshift=1.1cm]current page.south east);
 \end{tikzpicture}
 
-\vspace{0.5cm}
+\vspace{0.4cm}
 \begin{center}
-{\color{white}\fontsize{28}{34}\selectfont\bfseries Thank You!}\\[8pt]
-{\color{white!80}\large Questions \& Demo}\\[16pt]
-\color{accent}\rule{8cm}{1.5pt}\\[12pt]
+  {\color{white}\fontsize{28}{33}\selectfont\bfseries Thank You!}\\[6pt]
+  {\color{white!80}\large Questions \& Live Demo}\\[10pt]
+  {\color{accent}\rule{8cm}{1.4pt}}\\[10pt]
+  \begin{tikzpicture}
+    \node[fill=white,rounded corners=7pt,inner sep=10pt,
+          draw=primary!40,line width=1pt]{%
+      \begin{tabular}{c}
+        \color{primary}\textbf{Agentic Document Processor}\\[5pt]
+        \scriptsize\color{darkgray!80}
+        \faGithub~~\texttt{github.com/Charan-L574/agentic-doc-processor}\\[4pt]
+        \faDesktop~~Streamlit UI:\quad\texttt{localhost:8501}\\[4pt]
+        \faServer~~FastAPI Swagger:\quad\texttt{localhost:8000/docs}\\
+      \end{tabular}};
+  \end{tikzpicture}
+  \vspace{8pt}
 
-\begin{tikzpicture}
-\node[fill=white, rounded corners=8pt, inner sep=10pt, draw=primary!40, line width=1pt] {
-\begin{tabular}{c}
-\color{primary}\textbf{Agentic Document Processor}\\[4pt]
-\scriptsize\color{darkgray}
-\faGithub~GitHub: \texttt{agentic-doc-processor-main} \\[3pt]
-\faServer~API: \texttt{http://localhost:8000/docs} \\[3pt]
-\faDesktop~UI: \texttt{http://localhost:8501} \\[3pt]
-\faFile~Evaluation: \texttt{evaluation/metrics\_calculation\_report.xlsx} \\
-\end{tabular}
-};
-\end{tikzpicture}
-
-\vspace{10pt}
-\begin{tcolorbox}[enhanced, width=9cm, colback=accent!12, colframe=accent, sharp corners, boxrule=1pt,
-  halign=center]
-\small\textbf{Demo command:}\\
-\ttfamily\footnotesize
-\textcolor{primary}{streamlit run} streamlit\_app.py \textcolor{darkgray}{\# port 8501}\\
-\textcolor{primary}{uvicorn} api.main:app --reload \textcolor{darkgray}{\# port 8000}
-\end{tcolorbox}
+  \begin{tcolorbox}[enhanced,width=8cm,colback=accent!10,colframe=accent,
+    sharp corners,boxrule=1pt,halign=center]
+    \small\textbf{Start:}\quad
+    \ttfamily\footnotesize
+    \textcolor{primary}{streamlit run} streamlit\_app.py\\[-1pt]
+    \textcolor{primary}{uvicorn} api.main:app --reload
+  \end{tcolorbox}
 \end{center}
 \end{frame}
 
-%======================================================
 \end{document}
-%======================================================
