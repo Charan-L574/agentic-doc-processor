@@ -1,0 +1,14 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:25:49.672816,1400.5820751190186,574,485,89,False,,0,"--- Page/Section 1 ---
+CHARAN L
+Address: No.1/2, Vardaraju Building, 
+    Near OM UPVC Windows, 4th ","{'doc_type': <DocumentType.RESUME: 'resume'>, 'confidence': 0.9, 'reasoning': 'Work Experience/Skill"
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:25:51.336267,1640.8629417419434,2387,1695,692,False,,0,"--- Page/Section 1 ---
+CHARAN L
+Address: No.1/2, Vardaraju Building, 
+    Near OM UPVC Windows, 4th ","{""candidate_name"": ""Charan L"", ""email"": ""charanlokesh7304@gmail.com"", ""phone"": ""+91 9066898399"", ""ad"
+ValidatorAgent,bedrock-claude,bedrock,2026-02-23 11:25:51.339062,0.0,0,0,0,False,,0,"{'candidate_name': 'Charan L', 'email': 'charanlokesh7304@gmail.com', 'phone': '+91 9066898399', 'ad","{'status': <ValidationStatus.VALID: 'valid'>, 'is_valid': True, 'errors': [], 'warnings': [], 'valid"
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:25:53.117338,1768.3792114257812,2460,1936,524,False,,0,"--- Page/Section 1 ---
+CHARAN L
+Address: No.1/2, Vardaraju Building, 
+    Near OM UPVC Windows, 4th ","PII Count: 15, Precision: 0.20, Recall: 0.60"

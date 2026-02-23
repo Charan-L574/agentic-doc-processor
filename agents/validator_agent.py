@@ -7,6 +7,8 @@ import re
 from datetime import datetime
 from typing import Dict, Any, List, Tuple, Optional
 
+from json_repair import repair_json
+
 from graph.state import DocumentState
 from schemas.document_schemas import (
     DocumentType,
@@ -16,6 +18,7 @@ from schemas.document_schemas import (
 )
 from utils.llm_client import llm_client
 from utils.logger import logger
+from prompts import VALIDATOR_PROMPT, VALIDATOR_SYSTEM_PROMPT
 
 
 class ValidatorAgent:
@@ -87,29 +90,6 @@ class ValidatorAgent:
         "issued": "issue_date", "issued_date": "issue_date",
         "expires": "expiration_date", "expiry_date": "expiration_date", "valid_until": "expiration_date",
     }
-    
-    VALIDATION_PROMPT_TEMPLATE = """Validate extracted {doc_type} fields.
-
-SCHEMA FIELDS: {schema_fields}
-REQUIRED: {priority_fields}
-EXTRACTED: {extracted_fields}
-
-RULES:
-- If required fields contain any real value → is_valid = true
-- NEVER flag type mismatches: lists, arrays, objects, strings are equally valid
-- Field name aliases are fine: "experience" = work_experience, "employment_history" = work_experience
-- Accept any date, number, or currency format
-- If 40%+ schema fields have real values → is_valid = true
-- Only return errors for fields that are COMPLETELY absent (null / empty string / missing key)
-- If you have doubts, default to is_valid = true
-
-Return ONLY this JSON (no extra text):
-{{
-  "is_valid": true,
-  "errors": [],
-  "warnings": [],
-  "status": "valid"
-}}"""
     
     def __init__(self):
         self.name = "ValidatorAgent"
@@ -321,100 +301,25 @@ Return ONLY this JSON (no extra text):
         
         return errors, warnings
     
-    def _clean_json_string(self, text: str) -> str:
-        """
-        Clean JSON string by removing common issues
-        
-        Args:
-            text: Raw text that should contain JSON
-        
-        Returns:
-            Cleaned text
-        """
-        # Remove any text before first { and after last }
-        first_brace = text.find('{')
-        last_brace = text.rfind('}')
-        
-        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-            text = text[first_brace:last_brace + 1]
-        
-        return text.strip()
-    
     def _extract_json_from_response(self, response: str) -> Dict[str, Any]:
         """
-        Try multiple strategies to extract JSON from LLM response
-        
-        Args:
-            response: Raw LLM response
-        
-        Returns:
-            Parsed JSON dict
-        
-        Raises:
-            ValueError if all parsing strategies fail
+        Parse JSON from LLM validation response using repair_json.
+        Handles markdown fences, preamble text, truncated JSON, double braces.
+        Falls back to a default valid structure if repair also fails.
         """
-        response_text = response.strip()
-        
-        # FIX: Remove double braces (Claude artifact)
-        if response_text.startswith('{{') and response_text.endswith('}}'):
-            response_text = response_text[1:-1].strip()
-            logger.debug("Removed double braces from validator response")
-        
-        # Strategy 1: Direct JSON parsing
         try:
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            pass
-        
-        # Strategy 2: Extract from markdown code blocks
-        if "```json" in response_text:
-            try:
-                json_str = response_text.split("```json")[1].split("```")[0].strip()
-                return json.loads(json_str)
-            except (IndexError, json.JSONDecodeError):
-                pass
-        
-        if "```" in response_text:
-            try:
-                json_str = response_text.split("```")[1].split("```")[0].strip()
-                return json.loads(json_str)
-            except (IndexError, json.JSONDecodeError):
-                pass
-        
-        # Strategy 3: Clean and extract JSON object
-        try:
-            cleaned = self._clean_json_string(response_text)
-            return json.loads(cleaned)
-        except json.JSONDecodeError:
-            pass
-        
-        # Strategy 4: Try to find JSON object boundaries manually
-        try:
-            first_brace = response_text.find('{')
-            if first_brace != -1:
-                # Count braces to find matching closing brace
-                brace_count = 0
-                for i in range(first_brace, len(response_text)):
-                    if response_text[i] == '{':
-                        brace_count += 1
-                    elif response_text[i] == '}':
-                        brace_count -= 1
-                        if brace_count == 0:
-                            json_str = response_text[first_brace:i+1]
-                            return json.loads(json_str)
-        except json.JSONDecodeError:
-            pass
-        
-        # Strategy 5: Create default valid response if all else fails
-        logger.warning(f"JSON parsing failed for all strategies. Response preview: {response_text[:200]}")
-        
-        # Return a default valid structure to prevent pipeline failure
-        return {
-            "is_valid": True,  # Assume valid if can't parse (fail-open)
-            "errors": [],
-            "warnings": ["Validation response parsing failed, skipping LLM validation"],
-            "status": "valid"
-        }
+            result = repair_json(response, return_objects=True)
+            if isinstance(result, dict):
+                return result
+            raise ValueError(f"Expected dict, got {type(result).__name__}")
+        except Exception as e:
+            logger.warning(f"repair_json failed for validator response: {e}. Response preview: {response[:200]}")
+            return {
+                "is_valid": True,  # fail-open
+                "errors": [],
+                "warnings": ["Validation response parsing failed, skipping LLM validation"],
+                "status": "valid"
+            }
     
     def _validate_with_llm(
         self,
@@ -466,7 +371,7 @@ Return ONLY this JSON (no extra text):
         priority_str = ", ".join(priority_fields)
         
         # Create enhanced prompt with schema information
-        prompt = self.VALIDATION_PROMPT_TEMPLATE.format(
+        prompt = VALIDATOR_PROMPT.format(
             doc_type=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
             schema_fields=schema_fields_str,
             priority_fields=priority_str,
@@ -501,9 +406,25 @@ Return ONLY this JSON (no extra text):
             
             # Ensure errors and warnings are lists
             if not isinstance(result["errors"], list):
-                result["errors"] = [str(result["errors"])]
+                result["errors"] = [str(result["errors"]) ]
             if not isinstance(result["warnings"], list):
-                result["warnings"] = [str(result["warnings"])]
+                result["warnings"] = [str(result["warnings"]) ]
+
+            # Coerce each element to a string (dicts/lists -> JSON string)
+            def _coerce_list_to_strings(lst: List[Any]) -> List[str]:
+                coerced = []
+                for el in lst:
+                    if isinstance(el, (dict, list)):
+                        try:
+                            coerced.append(json.dumps(el, ensure_ascii=False))
+                        except Exception:
+                            coerced.append(str(el))
+                    else:
+                        coerced.append(str(el))
+                return coerced
+
+            result["errors"] = _coerce_list_to_strings(result["errors"])
+            result["warnings"] = _coerce_list_to_strings(result["warnings"])
             
             return result, llm_response
         
@@ -753,7 +674,7 @@ Return ONLY this JSON (no extra text):
                     error_occurred=True,
                     error_message=str(e),
                     llm_provider="unknown",
-                    system_prompt=self.VALIDATION_PROMPT_TEMPLATE[:500],
+                    system_prompt=VALIDATOR_PROMPT[:500],
                     user_prompt="",
                     context_data={
                         "doc_type": state.get("doc_type", DocumentType.UNKNOWN).value,

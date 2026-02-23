@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:21:51.000,587.3898126838619,502,820,227,False,,0,"--- Document: med008_brain_mri.txt ---
+Content exc","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:21:51.587,1150.482008673264,673,1070,337,False,,0,"--- Document: med008_brain_mri.txt ---
+Content exc","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:21:52.737,400.273319775906,1049,1023,556,False,,0,"--- Document: med008_brain_mri.txt ---
+Content exc","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:21:53.138,1109.8013976876186,1433,686,525,False,,0,"--- Document: med008_brain_mri.txt ---
+Content exc","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

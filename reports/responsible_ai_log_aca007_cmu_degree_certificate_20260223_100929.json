@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\aca007_cmu_degree_certificate.txt",
+  "timestamp": "2026-02-23T10:09:29",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca007_cmu_degree_certificate.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca007_cmu_degree_certificate.txt",
+        "text_length": 1994,
+        "excerpt_length": 366
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:09:29.000",
+      "latency_ms": 490.70533327932003,
+      "tokens_used": 1158,
+      "tokens_input": 613,
+      "tokens_output": 207,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca007_cmu_degree_certificate.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca007_cmu_degree_certificate.txt",
+        "text_length": 3374,
+        "excerpt_length": 1159
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:09:29.490",
+      "latency_ms": 1002.105104626616,
+      "tokens_used": 1799,
+      "tokens_input": 913,
+      "tokens_output": 136,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca007_cmu_degree_certificate.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca007_cmu_degree_certificate.txt",
+        "text_length": 1200,
+        "excerpt_length": 746
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:09:30.492",
+      "latency_ms": 382.73930170009646,
+      "tokens_used": 901,
+      "tokens_input": 417,
+      "tokens_output": 336,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca007_cmu_degree_certificate.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca007_cmu_degree_certificate.txt",
+        "text_length": 3121,
+        "excerpt_length": 904
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:09:30.875",
+      "latency_ms": 1065.6188092303535,
+      "tokens_used": 1540,
+      "tokens_input": 474,
+      "tokens_output": 450,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

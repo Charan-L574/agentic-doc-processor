@@ -1,0 +1,5 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:09:29.000,490.70533327932003,1158,613,207,False,,0,--- Document: aca007_cmu_degree_certificate.txt --,"{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:09:29.490,1002.105104626616,1799,913,136,False,,0,--- Document: aca007_cmu_degree_certificate.txt --,"{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:09:30.492,382.73930170009646,901,417,336,False,,0,--- Document: aca007_cmu_degree_certificate.txt --,"{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:09:30.875,1065.6188092303535,1540,474,450,False,,0,--- Document: aca007_cmu_degree_certificate.txt --,"{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

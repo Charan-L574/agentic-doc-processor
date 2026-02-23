@@ -22,7 +22,7 @@ except ImportError:
     PYPDF2_AVAILABLE = False
     PdfReader = None
 
-from config import settings
+from utils.config import settings
 from utils.logger import logger
 
 

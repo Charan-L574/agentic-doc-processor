@@ -9,6 +9,7 @@ from graph.state import DocumentState
 from schemas.document_schemas import DocumentType, ClassificationResult, ResponsibleAILog
 from utils.llm_client import llm_client
 from utils.logger import logger
+from prompts import CLASSIFIER_PROMPT, CLASSIFIER_SYSTEM_PROMPT
 
 class ClassifierAgent:
     """
@@ -16,31 +17,6 @@ class ClassifierAgent:
     
     Uses Claude Haiku to determine document category from raw text.
     """
-    
-    CLASSIFICATION_PROMPT_TEMPLATE = """Classify this document into ONE category.
-
-DECISION (first match wins):
-1. Payment/billing/invoice present? → financial_document
-2. Has Work Experience OR Skills OR career objective? → resume
-3. Formal offer letter from employer to candidate? → job_offer
-4. Medical diagnosis/prescription/lab (no billing)? → medical_record
-5. Physical ID card (passport, driver license, Aadhaar, PAN, voter ID, college ID card, student ID card, employee ID)? → id_document
-6. Official document issued BY institution showing grades/marks/degree (transcript/mark sheet/diploma/degree certificate)? → academic
-
-KEY RULES:
-- Work Experience/Skills present → ALWAYS resume (even if Education section exists)
-- Written BY a person about themselves → resume
-- College ID card / Student ID card → id_document (NOT academic)
-- Issued BY an institution showing grades/scores → academic
-- Medical receipt with charges → financial_document
-
-DOCUMENT:
-{text_excerpt}
-
-Return JSON only:
-{{"doc_type": "<category>", "confidence": <0.8-1.0>, "reasoning": "<key signal>"}}"""
-    
-    SYSTEM_PROMPT = "Document classifier. CRITICAL: Work Experience/Skills = resume. College/student ID card = id_document (NOT academic). Official institution-issued grades/transcript = academic. Medical receipt with charges = financial_document. Return JSON only."
     
     def __init__(self):
         self.name = "ClassifierAgent"
@@ -200,7 +176,7 @@ Return JSON only:
         try:
             # Prepare prompt
             text_excerpt = self._prepare_text_excerpt(state["raw_text"])
-            prompt = self.CLASSIFICATION_PROMPT_TEMPLATE.format(
+            prompt = CLASSIFIER_PROMPT.format(
                 text_excerpt=text_excerpt
             )
             
@@ -208,7 +184,7 @@ Return JSON only:
             # Removed force_provider - allows Groq→Claude→HF fallback if rate limit hit
             response = llm_client.generate(
                 prompt=prompt,
-                system_prompt=self.SYSTEM_PROMPT,
+                system_prompt=CLASSIFIER_SYSTEM_PROMPT,
                 temperature=0.0,
                 max_tokens=150,
                 groq_model="llama-3.1-8b-instant",  # 8b-instant: fast enough for 6-category classification
@@ -251,7 +227,7 @@ Return JSON only:
                     tokens_used=response["tokens"]["input"] + response["tokens"]["output"],
                     error_occurred=False,
                     llm_provider=response["provider"],
-                    system_prompt=self.SYSTEM_PROMPT,
+                    system_prompt=CLASSIFIER_SYSTEM_PROMPT,
                     user_prompt=response.get("user_prompt", ""),
                     context_data={
                         "file_path": state.get("file_path", ""),
@@ -301,7 +277,7 @@ Return JSON only:
                     error_occurred=True,
                     error_message=str(e),
                     llm_provider="unknown",
-                    system_prompt=self.SYSTEM_PROMPT,
+                    system_prompt=CLASSIFIER_SYSTEM_PROMPT,
                     user_prompt="",
                     context_data={
                         "file_path": state.get("file_path", ""),

@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\med004_pneumonia_visit.txt",
+  "doc_type": "medical_record",
+  "timestamp": "2026-02-23T09:01:12.437337",
+  "metrics": {
+    "extraction_accuracy": 0.949,
+    "pii_recall": 0.98,
+    "pii_precision": 0.945,
+    "workflow_success": true,
+    "total_processing_time": 5.776,
+    "agent_latencies": {
+      "ClassifierAgent": 0.347,
+      "ExtractorAgent": 2.888,
+      "ValidatorAgent": 0.116,
+      "RedactorAgent": 2.426
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:12.437337"
+  },
+  "classification": {
+    "doc_type": "medical_record",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:12.437337"
+  },
+  "extraction": {
+    "fields": {
+      "patient_name": "Med004 Pneumonia Visit",
+      "diagnosis": "Sample"
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "patient_name": "Med004 Pneumonia Visit",
+      "diagnosis": "Sample"
+    },
+    "timestamp": "2026-02-23T09:01:12.437337"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.945,
+    "recall": 0.98
+  },
+  "errors": []
+}

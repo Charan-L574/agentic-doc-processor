@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from config import settings
+from utils.config import settings
 from graph.workflow import workflow
 from utils.logger import logger
 from utils.graph_visualizer import graph_visualizer

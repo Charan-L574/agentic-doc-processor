@@ -1,11 +1,6 @@
 """
 LangGraph Visualization Utilities
 """
-from pathlib import Path
-from typing import Optional
-import base64
-from io import BytesIO
-
 from utils.logger import logger
 
 
@@ -16,19 +11,11 @@ class GraphVisualizer:
     Provides:
     1. Graph structure visualization (Mermaid diagrams)
     2. Execution trace visualization
-    3. PNG/SVG export capabilities
     """
     
-    def __init__(self, output_dir: Optional[Path] = None):
-        """
-        Initialize visualizer
-        
-        Args:
-            output_dir: Directory for saving visualization outputs
-        """
-        self.output_dir = output_dir or Path("./visualizations")
-        self.output_dir.mkdir(exist_ok=True, parents=True)
-        logger.info(f"GraphVisualizer initialized, output_dir: {self.output_dir}")
+    def __init__(self):
+        """Initialize visualizer"""
+        logger.info("GraphVisualizer initialized")
     
     def generate_mermaid_diagram(self, workflow) -> str:
         """
@@ -77,105 +64,6 @@ class GraphVisualizer:
             logger.error(f"Failed to generate Mermaid diagram: {e}")
             return f"graph TD\n  Error[Error: {str(e)}]"
     
-    def save_mermaid_to_file(self, mermaid_diagram: str, filename: str = "workflow.mmd") -> Path:
-        """
-        Save Mermaid diagram to file
-        
-        Args:
-            mermaid_diagram: Mermaid diagram string
-            filename: Output filename
-        
-        Returns:
-            Path to saved file
-        """
-        output_path = self.output_dir / filename
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(mermaid_diagram)
-        
-        logger.info(f"Mermaid diagram saved to {output_path}")
-        return output_path
-    
-    def export_as_png(self, workflow, filename: str = "workflow.png") -> Optional[Path]:
-        """
-        Export workflow as PNG image
-        
-        Args:
-            workflow: LangGraph workflow/graph instance (DocumentProcessingWorkflow)
-            filename: Output filename
-        
-        Returns:
-            Path to saved file or None if failed
-        """
-        try:
-            png_data = None
-            
-            # Try compiled graph (standard LangGraph)
-            if hasattr(workflow, 'compiled_graph') and workflow.compiled_graph:
-                graph = workflow.compiled_graph.get_graph()
-                png_data = graph.draw_mermaid_png()
-            
-            # Try graph attribute
-            elif hasattr(workflow, 'graph'):
-                # Compile if needed
-                if not hasattr(workflow, 'compiled_graph') or workflow.compiled_graph is None:
-                    if hasattr(workflow, 'compile'):
-                        workflow.compile()
-                
-                if workflow.compiled_graph:
-                    graph = workflow.compiled_graph.get_graph()
-                    png_data = graph.draw_mermaid_png()
-            
-            # Direct StateGraph
-            elif hasattr(workflow, 'get_graph'):
-                graph = workflow.get_graph()
-                png_data = graph.draw_mermaid_png()
-            
-            if png_data:
-                output_path = self.output_dir / filename
-                with open(output_path, "wb") as f:
-                    f.write(png_data)
-                
-                logger.info(f"PNG exported to {output_path}")
-                return output_path
-            else:
-                logger.warning("Could not generate PNG data")
-                return None
-        
-        except ImportError:
-            logger.warning("PNG export requires: pip install pygraphviz")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to export PNG: {e}")
-            return None
-    
-    def get_execution_trace(self, state_history: list) -> dict:
-        """
-        Generate execution trace from state history
-        
-        Args:
-            state_history: List of state snapshots during execution
-        
-        Returns:
-            Structured execution trace
-        """
-        trace = {
-            "total_steps": len(state_history),
-            "steps": []
-        }
-        
-        for idx, state in enumerate(state_history):
-            step = {
-                "step_number": idx + 1,
-                "agent_timings": state.get("agent_timings", {}),
-                "doc_type": state.get("doc_type"),
-                "validation_status": state.get("validation_status"),
-                "repair_attempts": state.get("repair_attempts", 0),
-                "errors": state.get("errors", [])
-            }
-            trace["steps"].append(step)
-        
-        return trace
-    
     def extract_execution_path(self, trace_log: list) -> list:
         """
         Extract the actual execution path from trace log
@@ -211,7 +99,7 @@ class GraphVisualizer:
         path = self.extract_execution_path(trace_log)
         
         # Start diagram
-        diagram = ["graph LR"]
+        diagram = ["graph TD"]
         diagram.append("    classDef executed fill:#90EE90,stroke:#006400,stroke-width:3px,color:#000")
         diagram.append("")
         
@@ -329,27 +217,3 @@ class GraphVisualizer:
 
 # Global visualizer instance
 graph_visualizer = GraphVisualizer()
-
-
-def visualize_workflow(workflow, output_format: str = "mermaid") -> Optional[Path]:
-    """
-    Quick utility to visualize workflow
-    
-    Args:
-        workflow: LangGraph workflow
-        output_format: "mermaid", "png", or "both"
-    
-    Returns:
-        Path to saved file(s)
-    """
-    if output_format in ["mermaid", "both"]:
-        mermaid = graph_visualizer.generate_mermaid_diagram(workflow)
-        mermaid_path = graph_visualizer.save_mermaid_to_file(mermaid)
-        logger.info(f"Mermaid diagram: {mermaid_path}")
-    
-    if output_format in ["png", "both"]:
-        png_path = graph_visualizer.export_as_png(workflow)
-        if png_path:
-            logger.info(f"PNG diagram: {png_path}")
-    
-    return graph_visualizer.output_dir

@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:00:40.000,333.39932044970413,901,478,171,False,,0,"--- Document: aca004_mit_phd_transcript.txt ---
+Co","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:00:40.333,1041.8827284984075,1516,339,402,False,,0,"--- Document: aca004_mit_phd_transcript.txt ---
+Co","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:00:41.375,326.57654590558116,847,488,358,False,,0,"--- Document: aca004_mit_phd_transcript.txt ---
+Co","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:00:41.701,1221.4131103349862,1730,968,379,False,,0,"--- Document: aca004_mit_phd_transcript.txt ---
+Co","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

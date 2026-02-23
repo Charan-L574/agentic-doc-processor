@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:39:13.000,559.3951182090647,1176,252,299,False,,0,"--- Document: id004_aadhaar_card.txt ---
+Content e","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:39:13.559,759.1218349032912,1331,542,316,False,,0,"--- Document: id004_aadhaar_card.txt ---
+Content e","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:39:14.318,408.97745108004875,1538,927,467,False,,0,"--- Document: id004_aadhaar_card.txt ---
+Content e","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:39:14.727,1140.6699881580307,845,309,396,False,,0,"--- Document: id004_aadhaar_card.txt ---
+Content e","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

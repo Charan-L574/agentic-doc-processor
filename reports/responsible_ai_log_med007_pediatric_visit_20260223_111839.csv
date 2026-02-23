@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:18:39.000,554.9213083874196,1248,1157,422,False,,0,"--- Document: med007_pediatric_visit.txt ---
+Conte","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:18:39.554,945.4025396455909,1186,756,304,False,,0,"--- Document: med007_pediatric_visit.txt ---
+Conte","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:18:40.500,273.19533187353164,411,1164,484,False,,0,"--- Document: med007_pediatric_visit.txt ---
+Conte","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:18:40.773,1402.308395795765,1270,474,190,False,,0,"--- Document: med007_pediatric_visit.txt ---
+Conte","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

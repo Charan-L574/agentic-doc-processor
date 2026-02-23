@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\academic_transcript.txt",
+  "timestamp": "2026-02-23T10:12:20",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: academic_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\academic_transcript.txt",
+        "text_length": 3678,
+        "excerpt_length": 257
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:12:20.000",
+      "latency_ms": 552.8555760569429,
+      "tokens_used": 869,
+      "tokens_input": 1091,
+      "tokens_output": 116,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: academic_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\academic_transcript.txt",
+        "text_length": 2143,
+        "excerpt_length": 474
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:12:20.552",
+      "latency_ms": 1083.0274804627286,
+      "tokens_used": 535,
+      "tokens_input": 466,
+      "tokens_output": 567,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: academic_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\academic_transcript.txt",
+        "text_length": 3440,
+        "excerpt_length": 522
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:12:21.635",
+      "latency_ms": 482.87291430051636,
+      "tokens_used": 835,
+      "tokens_input": 921,
+      "tokens_output": 355,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: academic_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\academic_transcript.txt",
+        "text_length": 3133,
+        "excerpt_length": 669
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:12:22.118",
+      "latency_ms": 1076.942330742465,
+      "tokens_used": 692,
+      "tokens_input": 521,
+      "tokens_output": 171,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

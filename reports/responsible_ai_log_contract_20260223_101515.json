@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\contract.txt",
+  "timestamp": "2026-02-23T10:15:15",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: contract.txt ---\nContent excerpt from contract document...",
+      "system_prompt": "Process contract document. Return JSON.",
+      "user_prompt": "Extract and validate contract document.",
+      "context_data": {
+        "file_path": "data\\samples\\contract.txt",
+        "text_length": 2707,
+        "excerpt_length": 469
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"contract\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:15:15.000",
+      "latency_ms": 523.4966946274819,
+      "tokens_used": 1597,
+      "tokens_input": 688,
+      "tokens_output": 559,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: contract.txt ---\nContent excerpt from contract document...",
+      "system_prompt": "Process contract document. Return JSON.",
+      "user_prompt": "Extract and validate contract document.",
+      "context_data": {
+        "file_path": "data\\samples\\contract.txt",
+        "text_length": 1982,
+        "excerpt_length": 424
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"contract\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:15:15.523",
+      "latency_ms": 950.1197549673938,
+      "tokens_used": 683,
+      "tokens_input": 771,
+      "tokens_output": 352,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: contract.txt ---\nContent excerpt from contract document...",
+      "system_prompt": "Process contract document. Return JSON.",
+      "user_prompt": "Extract and validate contract document.",
+      "context_data": {
+        "file_path": "data\\samples\\contract.txt",
+        "text_length": 692,
+        "excerpt_length": 1081
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"contract\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:15:16.473",
+      "latency_ms": 227.27282365213816,
+      "tokens_used": 624,
+      "tokens_input": 406,
+      "tokens_output": 421,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: contract.txt ---\nContent excerpt from contract document...",
+      "system_prompt": "Process contract document. Return JSON.",
+      "user_prompt": "Extract and validate contract document.",
+      "context_data": {
+        "file_path": "data\\samples\\contract.txt",
+        "text_length": 3287,
+        "excerpt_length": 632
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"contract\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:15:16.700",
+      "latency_ms": 911.9874012057152,
+      "tokens_used": 1621,
+      "tokens_input": 315,
+      "tokens_output": 297,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

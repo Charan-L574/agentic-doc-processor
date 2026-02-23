@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\fin007_credit_statement.txt",
+  "timestamp": "2026-02-23T10:24:31",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin007_credit_statement.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin007_credit_statement.txt",
+        "text_length": 1986,
+        "excerpt_length": 1099
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:24:31.000",
+      "latency_ms": 305.84302271574967,
+      "tokens_used": 1029,
+      "tokens_input": 495,
+      "tokens_output": 129,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin007_credit_statement.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin007_credit_statement.txt",
+        "text_length": 2823,
+        "excerpt_length": 1169
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:24:31.305",
+      "latency_ms": 744.5229554683399,
+      "tokens_used": 561,
+      "tokens_input": 337,
+      "tokens_output": 474,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin007_credit_statement.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin007_credit_statement.txt",
+        "text_length": 783,
+        "excerpt_length": 978
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:24:32.050",
+      "latency_ms": 345.79713899498415,
+      "tokens_used": 1490,
+      "tokens_input": 1034,
+      "tokens_output": 164,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin007_credit_statement.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin007_credit_statement.txt",
+        "text_length": 2446,
+        "excerpt_length": 1169
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:24:32.396",
+      "latency_ms": 889.874025149834,
+      "tokens_used": 1525,
+      "tokens_input": 419,
+      "tokens_output": 235,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

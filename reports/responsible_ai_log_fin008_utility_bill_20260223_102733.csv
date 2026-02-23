@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:27:33.000,561.7299123255773,833,802,486,False,,0,"--- Document: fin008_utility_bill.txt ---
+Content ","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:27:33.561,1037.9586414539858,1038,658,443,False,,0,"--- Document: fin008_utility_bill.txt ---
+Content ","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:27:34.599,394.96341729183604,1459,712,161,False,,0,"--- Document: fin008_utility_bill.txt ---
+Content ","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:27:34.994,973.5339295662055,443,852,383,False,,0,"--- Document: fin008_utility_bill.txt ---
+Content ","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

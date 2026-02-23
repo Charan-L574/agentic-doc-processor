@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\fin010_rent_invoice.txt",
+  "timestamp": "2026-02-23T10:33:30",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin010_rent_invoice.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin010_rent_invoice.txt",
+        "text_length": 1279,
+        "excerpt_length": 296
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:33:30.000",
+      "latency_ms": 542.249099329993,
+      "tokens_used": 598,
+      "tokens_input": 924,
+      "tokens_output": 320,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin010_rent_invoice.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin010_rent_invoice.txt",
+        "text_length": 2183,
+        "excerpt_length": 678
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:33:30.542",
+      "latency_ms": 812.5785399537323,
+      "tokens_used": 510,
+      "tokens_input": 939,
+      "tokens_output": 434,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin010_rent_invoice.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin010_rent_invoice.txt",
+        "text_length": 903,
+        "excerpt_length": 262
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:33:31.354",
+      "latency_ms": 495.24956340978986,
+      "tokens_used": 1224,
+      "tokens_input": 995,
+      "tokens_output": 273,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin010_rent_invoice.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin010_rent_invoice.txt",
+        "text_length": 947,
+        "excerpt_length": 454
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:33:31.850",
+      "latency_ms": 1360.4147576031892,
+      "tokens_used": 792,
+      "tokens_input": 444,
+      "tokens_output": 374,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

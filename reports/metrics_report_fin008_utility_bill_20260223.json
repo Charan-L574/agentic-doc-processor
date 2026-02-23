@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\fin008_utility_bill.txt",
+  "doc_type": "financial_document",
+  "timestamp": "2026-02-23T09:01:12.114569",
+  "metrics": {
+    "extraction_accuracy": 0.914,
+    "pii_recall": 0.981,
+    "pii_precision": 0.947,
+    "workflow_success": true,
+    "total_processing_time": 5.016,
+    "agent_latencies": {
+      "ClassifierAgent": 0.301,
+      "ExtractorAgent": 2.508,
+      "ValidatorAgent": 0.1,
+      "RedactorAgent": 2.107
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:12.114569"
+  },
+  "classification": {
+    "doc_type": "financial_document",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:12.114569"
+  },
+  "extraction": {
+    "fields": {
+      "invoice_number": "INV423",
+      "amount": 2065.71
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "invoice_number": "INV423",
+      "amount": 2065.71
+    },
+    "timestamp": "2026-02-23T09:01:12.114569"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.947,
+    "recall": 0.981
+  },
+  "errors": []
+}

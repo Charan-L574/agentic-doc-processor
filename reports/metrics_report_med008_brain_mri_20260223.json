@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\med008_brain_mri.txt",
+  "doc_type": "medical_record",
+  "timestamp": "2026-02-23T09:01:12.537380",
+  "metrics": {
+    "extraction_accuracy": 0.929,
+    "pii_recall": 0.99,
+    "pii_precision": 0.944,
+    "workflow_success": true,
+    "total_processing_time": 14.137,
+    "agent_latencies": {
+      "ClassifierAgent": 0.848,
+      "ExtractorAgent": 7.069,
+      "ValidatorAgent": 0.283,
+      "RedactorAgent": 5.938
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:12.537380"
+  },
+  "classification": {
+    "doc_type": "medical_record",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:12.537380"
+  },
+  "extraction": {
+    "fields": {
+      "patient_name": "Med008 Brain Mri",
+      "diagnosis": "Sample"
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "patient_name": "Med008 Brain Mri",
+      "diagnosis": "Sample"
+    },
+    "timestamp": "2026-02-23T09:01:12.537380"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.944,
+    "recall": 0.99
+  },
+  "errors": []
+}

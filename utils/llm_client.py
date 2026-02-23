@@ -1,5 +1,10 @@
 """
-LLM Client with Bedrock Claude Haiku and Local Llama3.1 Fallback
+LLM Client with configured fallback order and Groq key support.
+
+Fallback chain (configured per user request):
+    Groq (primary) -> Bedrock Claude -> HuggingFace -> Local Llama (GGUF/Transformers) -> Ollama
+
+Nova Lite is intentionally not used by default to respect user preference.
 """
 import json
 import time
@@ -10,7 +15,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from config import settings
+from utils.config import settings
 from utils.logger import logger
 from utils.retry_decorator import with_retry
 
@@ -27,15 +32,7 @@ class LLMProvider(str, Enum):
 
 class LLMClient:
     """
-    Unified LLM client with automatic fallback
-
-    Fallback chain:
-      Groq (primary, 300+ tok/s)
-      → Bedrock Nova Lite
-      → Bedrock Claude 3.5 Haiku
-      → HuggingFace Inference API
-      → Ollama (local server, llama3.1)
-      → Local Llama (GGUF / Transformers, CPU)
+    Unified LLM client with automatic fallback (Groq → Bedrock Claude → HF → local Llama → Ollama)
     """
 
     def __init__(self):
@@ -273,9 +270,24 @@ class LLMClient:
     
     def _initialize_llama_transformers(self) -> None:
         """Initialize local LLM client using Transformers with GPU support"""
+        # Skip if no model name configured (GGUF will be used instead)
+        if not settings.LOCAL_MODEL_NAME:
+            logger.info("LOCAL_MODEL_NAME not configured, skipping Transformers initialization")
+            self.llama_client = None
+            return
+        
         try:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
+            from huggingface_hub import login
+            
+            # Authenticate with HuggingFace if API key is available (for gated models)
+            if settings.HF_API_KEY:
+                try:
+                    login(token=settings.HF_API_KEY)
+                    logger.info("HuggingFace authentication successful")
+                except Exception as e:
+                    logger.warning(f"HuggingFace login failed: {e}")
             
             # Check if GPU is available
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -286,10 +298,11 @@ class LLMClient:
             
             logger.info(f"Initializing local LLM '{model_name}' on {gpu_info}...")
             
-            # Load tokenizer
+            # Load tokenizer (with token for gated models)
             self.llama_tokenizer = AutoTokenizer.from_pretrained(
                 model_name,
-                trust_remote_code=True
+                trust_remote_code=True,
+                token=settings.HF_API_KEY if settings.HF_API_KEY else None
             )
             
             # Set pad token if not exists
@@ -314,7 +327,8 @@ class LLMClient:
                         quantization_config=quantization_config,
                         device_map="auto",
                         trust_remote_code=True,
-                        torch_dtype=torch.float16
+                        torch_dtype=torch.float16,
+                        token=settings.HF_API_KEY if settings.HF_API_KEY else None
                     )
                     logger.info("Loaded model with 4-bit quantization")
                 except Exception as e:
@@ -324,7 +338,8 @@ class LLMClient:
                         model_name,
                         device_map="auto",
                         trust_remote_code=True,
-                        torch_dtype=torch.float16
+                        torch_dtype=torch.float16,
+                        token=settings.HF_API_KEY if settings.HF_API_KEY else None
                     )
             else:
                 # CPU inference with FP32
@@ -334,7 +349,8 @@ class LLMClient:
                     device_map="cpu",
                     trust_remote_code=True,
                     torch_dtype=torch.float32,
-                    low_cpu_mem_usage=True
+                    low_cpu_mem_usage=True,
+                    token=settings.HF_API_KEY if settings.HF_API_KEY else None
                 )
             
             self.llama_device = device
@@ -869,9 +885,7 @@ class LLMClient:
         errors = []
 
         # ROUTING STRATEGY:
-        # - groq_model specified → Groq first (fast agents: classifier, validator, redactor ~0.5s)
-        # - groq_model not specified → Nova Lite first (quality agents: extractor, self-repair ~4s)
-        #   Nova Lite: same accuracy as Claude Haiku but 2x faster, no rate limits
+        # - If a groq_model is provided and a Groq client is available, prefer Groq (fast)
         if groq_model and (self.groq_client or self.groq_client_b):
             # Select key: use secondary (groq_client_b) when groq_key==2 and available, else primary
             selected_client = (
@@ -886,23 +900,14 @@ class LLMClient:
             except Exception as groq_error:
                 logger.warning(f"Groq ({key_label}) failed: {groq_error}")
                 errors.append(f"Groq-{key_label}: {groq_error}")
-            # Fall through to Nova below
-
-        # Nova Lite (primary for quality agents, fallback for fast agents when Groq fails)
+        # Bedrock Claude (preferred Bedrock provider)
         if self.bedrock_client:
             try:
-                logger.info("Using Nova Lite (4s, no rate limits)")
-                return self._invoke_nova(prompt, system_prompt, max_tokens, temperature)
-            except Exception as nova_error:
-                logger.warning(f"Nova Lite failed: {nova_error}, falling back to Claude")
-                errors.append(f"Nova: {nova_error}")
-                # Fallback to Claude Haiku
-                try:
-                    logger.info("Falling back to Bedrock Claude Haiku")
-                    return self._invoke_bedrock_claude(prompt, system_prompt, max_tokens, temperature)
-                except Exception as bedrock_error:
-                    logger.warning(f"Bedrock Claude failed: {bedrock_error}")
-                    errors.append(f"Bedrock: {bedrock_error}")
+                logger.info("Using Bedrock Claude (user-preferred Bedrock provider)")
+                return self._invoke_bedrock_claude(prompt, system_prompt, max_tokens, temperature)
+            except Exception as bedrock_error:
+                logger.warning(f"Bedrock Claude failed: {bedrock_error}")
+                errors.append(f"Bedrock: {bedrock_error}")
         else:
             logger.debug("Bedrock client not available, skipping")
         
@@ -918,6 +923,26 @@ class LLMClient:
         else:
             logger.info("HuggingFace client not available, skipping")
         
+        # Fallback to HuggingFace
+        if self.huggingface_client:
+            try:
+                logger.info("Falling back to HuggingFace Inference API")
+                return self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
+            except Exception as hf_error:
+                logger.warning(f"HuggingFace fallback failed: {hf_error}", exc_info=True)
+                errors.append(f"HuggingFace: {hf_error}")
+        else:
+            logger.info("HuggingFace client not available, skipping")
+
+        # Fallback to local Llama (GGUF / Transformers)
+        if self.llama_client:
+            try:
+                logger.info("Falling back to local Llama (GGUF/Transformers)")
+                return self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
+            except Exception as llama_error:
+                logger.error(f"Local Llama fallback also failed: {llama_error}")
+                errors.append(f"LocalLlama: {llama_error}")
+
         # Fallback to Ollama (local server)
         if self.ollama_client:
             try:
@@ -929,18 +954,9 @@ class LLMClient:
         else:
             logger.info("Ollama not available, skipping")
 
-        # Fallback to local Llama (GGUF / Transformers)
-        if self.llama_client:
-            try:
-                logger.info("Falling back to local Llama (GGUF/Transformers)")
-                return self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
-            except Exception as llama_error:
-                logger.error(f"Local Llama fallback also failed: {llama_error}")
-                errors.append(f"LocalLlama: {llama_error}")
-                raise RuntimeError(f"All LLM providers failed: {'; '.join(errors)}")
-        else:
-            logger.error("No fallback available")
-            raise RuntimeError(f"All configured LLM providers failed: {'; '.join(errors)}")
+        # If we reach here, all providers failed
+        logger.error("All LLM providers exhausted")
+        raise RuntimeError(f"All configured LLM providers failed: {'; '.join(errors)}")
     
     def is_available(self, provider: Optional[LLMProvider] = None) -> bool:
         """

@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:12:20.000,552.8555760569429,869,1091,116,False,,0,"--- Document: academic_transcript.txt ---
+Content ","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:12:20.552,1083.0274804627286,535,466,567,False,,0,"--- Document: academic_transcript.txt ---
+Content ","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:12:21.635,482.87291430051636,835,921,355,False,,0,"--- Document: academic_transcript.txt ---
+Content ","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:12:22.118,1076.942330742465,692,521,171,False,,0,"--- Document: academic_transcript.txt ---
+Content ","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:45:15.000,473.67571725216317,567,679,436,False,,0,"--- Document: id006_tcs_employee_id.txt ---
+Conten","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:45:15.473,950.2033735747348,934,459,442,False,,0,"--- Document: id006_tcs_employee_id.txt ---
+Conten","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:45:16.423,414.85754023682443,1210,384,443,False,,0,"--- Document: id006_tcs_employee_id.txt ---
+Conten","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:45:16.838,1251.8505521863547,548,259,334,False,,0,"--- Document: id006_tcs_employee_id.txt ---
+Conten","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

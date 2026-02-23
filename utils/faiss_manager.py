@@ -9,7 +9,7 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from config import settings
+from utils.config import settings
 from utils.logger import logger
 
 

@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\aca006_india_be_marksheet.txt",
+  "timestamp": "2026-02-23T10:06:46",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca006_india_be_marksheet.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca006_india_be_marksheet.txt",
+        "text_length": 1011,
+        "excerpt_length": 1196
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:06:46.000",
+      "latency_ms": 437.82746390155273,
+      "tokens_used": 1175,
+      "tokens_input": 330,
+      "tokens_output": 382,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca006_india_be_marksheet.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca006_india_be_marksheet.txt",
+        "text_length": 3074,
+        "excerpt_length": 833
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:06:46.437",
+      "latency_ms": 775.9069688442557,
+      "tokens_used": 1140,
+      "tokens_input": 841,
+      "tokens_output": 198,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca006_india_be_marksheet.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca006_india_be_marksheet.txt",
+        "text_length": 687,
+        "excerpt_length": 877
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:06:47.213",
+      "latency_ms": 411.37155086447706,
+      "tokens_used": 866,
+      "tokens_input": 1041,
+      "tokens_output": 248,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca006_india_be_marksheet.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca006_india_be_marksheet.txt",
+        "text_length": 1453,
+        "excerpt_length": 1087
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:06:47.625",
+      "latency_ms": 1489.6550644625304,
+      "tokens_used": 606,
+      "tokens_input": 639,
+      "tokens_output": 242,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

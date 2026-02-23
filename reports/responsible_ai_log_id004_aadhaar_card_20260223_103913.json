@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\id004_aadhaar_card.txt",
+  "timestamp": "2026-02-23T10:39:13",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: id004_aadhaar_card.txt ---\nContent excerpt from id_document document...",
+      "system_prompt": "Process id_document document. Return JSON.",
+      "user_prompt": "Extract and validate id_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\id004_aadhaar_card.txt",
+        "text_length": 740,
+        "excerpt_length": 368
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"id_document\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:39:13.000",
+      "latency_ms": 559.3951182090647,
+      "tokens_used": 1176,
+      "tokens_input": 252,
+      "tokens_output": 299,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: id004_aadhaar_card.txt ---\nContent excerpt from id_document document...",
+      "system_prompt": "Process id_document document. Return JSON.",
+      "user_prompt": "Extract and validate id_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\id004_aadhaar_card.txt",
+        "text_length": 3711,
+        "excerpt_length": 1003
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"id_document\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:39:13.559",
+      "latency_ms": 759.1218349032912,
+      "tokens_used": 1331,
+      "tokens_input": 542,
+      "tokens_output": 316,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: id004_aadhaar_card.txt ---\nContent excerpt from id_document document...",
+      "system_prompt": "Process id_document document. Return JSON.",
+      "user_prompt": "Extract and validate id_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\id004_aadhaar_card.txt",
+        "text_length": 3492,
+        "excerpt_length": 1002
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"id_document\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:39:14.318",
+      "latency_ms": 408.97745108004875,
+      "tokens_used": 1538,
+      "tokens_input": 927,
+      "tokens_output": 467,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: id004_aadhaar_card.txt ---\nContent excerpt from id_document document...",
+      "system_prompt": "Process id_document document. Return JSON.",
+      "user_prompt": "Extract and validate id_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\id004_aadhaar_card.txt",
+        "text_length": 1277,
+        "excerpt_length": 503
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"id_document\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:39:14.727",
+      "latency_ms": 1140.6699881580307,
+      "tokens_used": 845,
+      "tokens_input": 309,
+      "tokens_output": 396,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

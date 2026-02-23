@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 from graph.state import DocumentState
 from schemas.document_schemas import MetricsReport, ResponsibleAILog
-from config import settings
+from utils.config import settings
 from utils.logger import logger
 
 
@@ -97,7 +97,6 @@ class ReporterAgent:
 
             # Count non-null extracted fields that are in the schema
             non_null_schema_fields = 0
-            fields_attempted = 0
             for field in schema_fields:
                 alias_keys = reverse_aliases.get(field, [])
                 field_value = extracted_fields.get(field)
@@ -108,11 +107,9 @@ class ReporterAgent:
                         if av not in (None, "", {}):
                             field_value = av
                             break
-                if field in extracted_fields or any(a in extracted_fields for a in alias_keys):
-                    fields_attempted += 1
-                    # Empty list [] = correctly extracted as none — counts as filled
-                    if field_value is not None and field_value != "":
-                        non_null_schema_fields += 1
+                # Empty list [] = correctly extracted as none — counts as filled
+                if field_value is not None and field_value != "":
+                    non_null_schema_fields += 1
             
             # Denominator logic:
             # - If extracted >= 10: use total_schema_fields (strict schema-based accuracy)
@@ -210,35 +207,19 @@ class ReporterAgent:
                     f.write("No trace logs available\n")
                     return
                 
-                # CSV headers
-                fieldnames = [
-                    'agent_name',
-                    'timestamp',
-                    'latency_ms',
-                    'llm_model_used',
-                    'tokens_used',
-                    'error_occurred',
-                    'error_message',
-                    'input_preview',
-                    'output_preview'
-                ]
+                # Derive column names from the schema; swap long-text fields for truncated previews
+                _LONG_TEXT = {"input_data", "output_data", "system_prompt", "user_prompt", "context_data", "raw_output"}
+                schema_fields = [f for f in ResponsibleAILog.model_fields if f not in _LONG_TEXT]
+                fieldnames = schema_fields + ["input_preview", "output_preview"]
                 
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
                 writer.writeheader()
                 
                 for log in trace_logs:
-                    log_dict = log.dict() if hasattr(log, 'dict') else log
-                    writer.writerow({
-                        'agent_name': log_dict['agent_name'],
-                        'timestamp': log_dict['timestamp'],
-                        'latency_ms': log_dict['latency_ms'],
-                        'llm_model_used': log_dict['llm_model_used'],
-                        'tokens_used': log_dict.get('tokens_used', 0),
-                        'error_occurred': log_dict['error_occurred'],
-                        'error_message': log_dict.get('error_message', ''),
-                        'input_preview': log_dict['input_data'][:100],
-                        'output_preview': log_dict['output_data'][:100]
-                    })
+                    row = log.model_dump()
+                    row["input_preview"] = (row.get("input_data") or "")[:100]
+                    row["output_preview"] = (row.get("output_data") or "")[:100]
+                    writer.writerow(row)
             
             logger.info(f"CSV report saved: {filepath}")
         except Exception as e:
@@ -389,7 +370,7 @@ class ReporterAgent:
             )
             
             # Update state
-            state["metrics"] = metrics_report.dict()
+            state["metrics"] = metrics_report.model_dump()
             
             # Generate filename with timestamp
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -402,10 +383,7 @@ class ReporterAgent:
             responsible_ai_json = {
                 "document": state["file_path"],
                 "timestamp": datetime.utcnow().isoformat(),
-                "trace_logs": [
-                    log.dict() if hasattr(log, 'dict') else log
-                    for log in trace_logs
-                ]
+                "trace_logs": [log.model_dump() for log in trace_logs]
             }
             self._save_json_report(
                 responsible_ai_json,
@@ -424,12 +402,12 @@ class ReporterAgent:
                 "doc_type": state["doc_type"].value if state.get("doc_type") else "unknown",
                 "timestamp": datetime.utcnow().isoformat(),
                 "metrics": metrics_report.dict(),
-                "classification": state.get("classification_result").dict() if state.get("classification_result") else None,
+                "classification": state.get("classification_result").model_dump() if state.get("classification_result") else None,
                 "extraction": {
                     "fields_count": len(state.get("extracted_fields", {})),
                     "fields": state.get("extracted_fields", {})
                 },
-                "validation": state.get("validation_result").dict() if state.get("validation_result") else None,
+                "validation": state.get("validation_result").model_dump() if state.get("validation_result") else None,
                 "redaction": {
                     "pii_count": state.get("redaction_result").pii_count if state.get("redaction_result") else 0,
                     "precision": metrics_summary["pii_precision"],

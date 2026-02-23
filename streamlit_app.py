@@ -171,14 +171,8 @@ def display_extraction_results(fields, doc_type, confidence=0.0, extraction_accu
         denominator = schema_count if schema_count > 0 else schema_filled + 1
     accuracy_pct = min(100.0, schema_filled / denominator * 100) if denominator > 0 else 0.0
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, = st.columns(1)
     with col1:
-        st.metric("Schema Fields", schema_count, help="Total fields defined in the document schema")
-    with col2:
-        st.metric("Total Extracted", total_fields, help="All fields returned by the LLM")
-    with col3:
-        st.metric("Filled Fields", schema_filled, help="Schema fields with actual values")
-    with col4:
         st.metric("Schema Accuracy", f"{accuracy_pct:.1f}%", help="Filled schema fields vs schema total")
 
     # Determine overall validity: confidence > 90% AND extraction accuracy > 85%
@@ -504,7 +498,7 @@ def get_execution_trace(trace_log):
 
 
 def display_execution_visualizations(result):
-    """Display LangGraph Studio-style execution visualizations"""
+    """Display execution visualizations for the document processing pipeline"""
     if not result or 'trace_log' not in result:
         st.warning("No execution trace available. Process a document first.")
         return
@@ -514,7 +508,7 @@ def display_execution_visualizations(result):
     # Create sub-tabs for different visualizations
     viz_tabs = st.tabs(["🎯 Execution Path", " Trace Details"])
     
-    # Tab 1: Execution Path (LangGraph Studio style)
+    # Tab 1: Execution Path
     with viz_tabs[0]:
         st.markdown("### 🎯 Execution Path Visualization")
         st.markdown("""
@@ -1055,8 +1049,6 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.image("https://via.placeholder.com/300x100/1f77b4/ffffff?text=Document+Processor")
-        
         st.markdown("---")
         st.markdown("### 🎯 Features")
         st.markdown("""
@@ -1427,15 +1419,15 @@ def main():
     
     # Tab 4: Workflow Diagram
     with tabs[3]:
-        st.markdown("## 🔄 LangGraph Studio Visualizer")
+        st.markdown("## 🔄 Workflow Visualizer")
         st.markdown("""
-        Visualize your document processing workflow with **LangGraph Studio-style** interactive diagrams.
+        Visualize your document processing workflow with interactive diagrams.
         """)
         
         # Create visualization mode selector
         viz_mode = st.radio(
             "Visualization Mode:",
-            ["📐 Static Workflow Structure", "🎯 Live Execution Path (LangGraph Studio)"],
+            ["📐 Static Workflow Structure", "🎯 Live Execution Path"],
             horizontal=True
         )
         

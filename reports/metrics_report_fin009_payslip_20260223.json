@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\fin009_payslip.txt",
+  "doc_type": "financial_document",
+  "timestamp": "2026-02-23T09:01:12.141980",
+  "metrics": {
+    "extraction_accuracy": 0.972,
+    "pii_recall": 0.978,
+    "pii_precision": 0.944,
+    "workflow_success": true,
+    "total_processing_time": 6.158,
+    "agent_latencies": {
+      "ClassifierAgent": 0.369,
+      "ExtractorAgent": 3.079,
+      "ValidatorAgent": 0.123,
+      "RedactorAgent": 2.586
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:12.141980"
+  },
+  "classification": {
+    "doc_type": "financial_document",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:12.141980"
+  },
+  "extraction": {
+    "fields": {
+      "invoice_number": "INV505",
+      "amount": 4434.95
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "invoice_number": "INV505",
+      "amount": 4434.95
+    },
+    "timestamp": "2026-02-23T09:01:12.141980"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.944,
+    "recall": 0.978
+  },
+  "errors": []
+}

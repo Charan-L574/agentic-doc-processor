@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\fin008_utility_bill.txt",
+  "timestamp": "2026-02-23T10:27:33",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin008_utility_bill.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin008_utility_bill.txt",
+        "text_length": 2233,
+        "excerpt_length": 1187
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:27:33.000",
+      "latency_ms": 561.7299123255773,
+      "tokens_used": 833,
+      "tokens_input": 802,
+      "tokens_output": 486,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin008_utility_bill.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin008_utility_bill.txt",
+        "text_length": 1323,
+        "excerpt_length": 930
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:27:33.561",
+      "latency_ms": 1037.9586414539858,
+      "tokens_used": 1038,
+      "tokens_input": 658,
+      "tokens_output": 443,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin008_utility_bill.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin008_utility_bill.txt",
+        "text_length": 2294,
+        "excerpt_length": 1121
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:27:34.599",
+      "latency_ms": 394.96341729183604,
+      "tokens_used": 1459,
+      "tokens_input": 712,
+      "tokens_output": 161,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: fin008_utility_bill.txt ---\nContent excerpt from financial_document document...",
+      "system_prompt": "Process financial_document document. Return JSON.",
+      "user_prompt": "Extract and validate financial_document document.",
+      "context_data": {
+        "file_path": "data\\samples\\fin008_utility_bill.txt",
+        "text_length": 762,
+        "excerpt_length": 546
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"financial_document\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:27:34.994",
+      "latency_ms": 973.5339295662055,
+      "tokens_used": 443,
+      "tokens_input": 852,
+      "tokens_output": 383,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

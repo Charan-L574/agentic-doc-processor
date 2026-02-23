@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:36:28.000,342.05468912843236,1347,505,547,False,,0,"--- Document: financial_invoice.txt ---
+Content ex","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:36:28.342,1153.9593595656077,1527,350,125,False,,0,"--- Document: financial_invoice.txt ---
+Content ex","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:36:29.496,395.64346819955665,430,345,574,False,,0,"--- Document: financial_invoice.txt ---
+Content ex","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:36:29.891,1327.495852813773,1232,747,346,False,,0,"--- Document: financial_invoice.txt ---
+Content ex","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

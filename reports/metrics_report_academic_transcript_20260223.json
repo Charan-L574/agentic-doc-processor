@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\academic_transcript.txt",
+  "doc_type": "academic",
+  "timestamp": "2026-02-23T09:01:11.987257",
+  "metrics": {
+    "extraction_accuracy": 0.932,
+    "pii_recall": 0.98,
+    "pii_precision": 0.946,
+    "workflow_success": true,
+    "total_processing_time": 9.288,
+    "agent_latencies": {
+      "ClassifierAgent": 0.557,
+      "ExtractorAgent": 4.644,
+      "ValidatorAgent": 0.186,
+      "RedactorAgent": 3.901
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:11.987257"
+  },
+  "classification": {
+    "doc_type": "academic",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:11.987257"
+  },
+  "extraction": {
+    "fields": {
+      "degree": "B.Sc",
+      "institution": "Example University"
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "degree": "B.Sc",
+      "institution": "Example University"
+    },
+    "timestamp": "2026-02-23T09:01:11.987257"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.946,
+    "recall": 0.98
+  },
+  "errors": []
+}

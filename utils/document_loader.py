@@ -25,7 +25,7 @@ try:
 except ImportError:
     TESSERACT_AVAILABLE = False
 
-from config import settings
+from utils.config import settings
 from utils.logger import logger
 
 

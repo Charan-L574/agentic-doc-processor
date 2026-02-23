@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:24:31.000,305.84302271574967,1029,495,129,False,,0,"--- Document: fin007_credit_statement.txt ---
+Cont","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:24:31.305,744.5229554683399,561,337,474,False,,0,"--- Document: fin007_credit_statement.txt ---
+Cont","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:24:32.050,345.79713899498415,1490,1034,164,False,,0,"--- Document: fin007_credit_statement.txt ---
+Cont","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:24:32.396,889.874025149834,1525,419,235,False,,0,"--- Document: fin007_credit_statement.txt ---
+Cont","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

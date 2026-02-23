@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:33:30.000,542.249099329993,598,924,320,False,,0,"--- Document: fin010_rent_invoice.txt ---
+Content ","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:33:30.542,812.5785399537323,510,939,434,False,,0,"--- Document: fin010_rent_invoice.txt ---
+Content ","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:33:31.354,495.24956340978986,1224,995,273,False,,0,"--- Document: fin010_rent_invoice.txt ---
+Content ","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:33:31.850,1360.4147576031892,792,444,374,False,,0,"--- Document: fin010_rent_invoice.txt ---
+Content ","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

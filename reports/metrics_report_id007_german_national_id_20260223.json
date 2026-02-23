@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\id007_german_national_id.txt",
+  "doc_type": "id_document",
+  "timestamp": "2026-02-23T09:01:12.280960",
+  "metrics": {
+    "extraction_accuracy": 0.95,
+    "pii_recall": 0.984,
+    "pii_precision": 0.936,
+    "workflow_success": true,
+    "total_processing_time": 6.168,
+    "agent_latencies": {
+      "ClassifierAgent": 0.37,
+      "ExtractorAgent": 3.084,
+      "ValidatorAgent": 0.123,
+      "RedactorAgent": 2.591
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:12.280960"
+  },
+  "classification": {
+    "doc_type": "id_document",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:12.280960"
+  },
+  "extraction": {
+    "fields": {
+      "id_number": "ID5315",
+      "name": "Id007 German National Id"
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "id_number": "ID5315",
+      "name": "Id007 German National Id"
+    },
+    "timestamp": "2026-02-23T09:01:12.280960"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.936,
+    "recall": 0.984
+  },
+  "errors": []
+}

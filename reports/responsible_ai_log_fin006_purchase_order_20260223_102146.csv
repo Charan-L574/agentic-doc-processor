@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:21:46.000,379.01671522532723,765,769,567,False,,0,"--- Document: fin006_purchase_order.txt ---
+Conten","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:21:46.379,663.846493678623,1708,769,411,False,,0,"--- Document: fin006_purchase_order.txt ---
+Conten","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:21:47.042,259.6733305294199,730,802,588,False,,0,"--- Document: fin006_purchase_order.txt ---
+Conten","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:21:47.302,1345.0385350413908,401,863,265,False,,0,"--- Document: fin006_purchase_order.txt ---
+Conten","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

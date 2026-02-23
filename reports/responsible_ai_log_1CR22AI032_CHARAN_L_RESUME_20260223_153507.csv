@@ -1,0 +1,22 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,us.amazon.nova-lite-v1:0,bedrock_nova,2026-02-23 10:04:56.147633,2419.8360443115234,562,488,74,False,,0,"--- Page/Section 1 ---
+CHARAN L
+Address: No.1/2, Vardaraju Building, 
+    Near OM UPVC Windows, 4th ","{'doc_type': <DocumentType.RESUME: 'resume'>, 'confidence': 0.95, 'reasoning': 'The document contain"
+ExtractorAgent,us.amazon.nova-lite-v1:0,bedrock_nova,2026-02-23 10:05:01.213776,5050.461292266846,2983,1771,1212,False,,0,"--- Page/Section 1 ---
+CHARAN L
+Address: No.1/2, Vardaraju Building, 
+    Near OM UPVC Windows, 4th ","{""candidate_name"": ""Charan L"", ""address"": ""No.1/2, Vardaraju Building, Near OM UPVC Windows, 4th Flo"
+ValidatorAgent,unknown,unknown,2026-02-23 10:05:02.091216,865.6589984893799,,0,0,True,"1 validation error for ValidationResult
+warnings.0
+  Input should be a valid string [type=string_type, input_value={'field': 'career_objecti...t recognized in schema'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_type",0,"{'candidate_name': 'Charan L', 'address': 'No.1/2, Vardaraju Building, Near OM UPVC Windows, 4th Flo",
+SelfRepairNode,us.amazon.nova-lite-v1:0,bedrock_nova,2026-02-23 10:05:04.207859,2112.549304962158,2887,2370,517,False,,1,"{""candidate_name"": ""Charan L"", ""address"": ""No.1/2, Vardaraju Building, Near OM UPVC Windows, 4th Flo","{""candidate_name"": ""Charan L"", ""email"": ""charanlokesh7304@gmail.com, charl22aiml@cmrit.ac.in"", ""phon"
+ValidatorAgent,unknown,unknown,2026-02-23 10:05:05.172132,962.0988368988037,,0,0,True,"1 validation error for ValidationResult
+warnings.0
+  Input should be a valid string [type=string_type, input_value={'field': 'work_experienc...null, but not required'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_type",0,"{'candidate_name': 'Charan L', 'email': 'charanlokesh7304@gmail.com, charl22aiml@cmrit.ac.in', 'phon",
+RedactorAgent,us.amazon.nova-lite-v1:0,bedrock_nova,2026-02-23 10:05:07.602391,2430.258274078369,2492,2120,372,False,,0,"--- Page/Section 1 ---
+CHARAN L
+Address: No.1/2, Vardaraju Building, 
+    Near OM UPVC Windows, 4th ","PII Count: 15, Precision: 0.13, Recall: 0.50"

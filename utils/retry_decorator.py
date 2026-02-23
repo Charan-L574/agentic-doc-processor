@@ -2,6 +2,7 @@
 Retry decorator with exponential backoff using tenacity
 """
 import functools
+import asyncio 
 import logging
 from typing import Callable, Any
 from tenacity import (
@@ -14,7 +15,7 @@ from tenacity import (
 )
 from botocore.exceptions import ClientError, EndpointConnectionError
 
-from config import settings
+from utils.config import settings
 from utils.logger import logger
 
 
@@ -77,4 +78,3 @@ def with_retry(
 
 
 # Import asyncio for coroutine check
-import asyncio

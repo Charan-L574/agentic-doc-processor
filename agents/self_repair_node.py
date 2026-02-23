@@ -6,10 +6,13 @@ import json
 from datetime import datetime
 from typing import Dict, Any
 
+from json_repair import repair_json
+
 from graph.state import DocumentState
 from schemas.document_schemas import ValidationStatus, ResponsibleAILog
 from utils.llm_client import llm_client
 from utils.logger import logger
+from prompts import SELF_REPAIR_PROMPT, SELF_REPAIR_RE_EXTRACTION_PROMPT, SELF_REPAIR_SYSTEM_PROMPT
 
 
 class SelfRepairNode:
@@ -21,174 +24,34 @@ class SelfRepairNode:
     2. Re-extraction Mode: Extract fields when none/few were extracted initially
     """
     
-    REPAIR_PROMPT_TEMPLATE = """Fix validation errors in extracted data fields.
-
-**Extracted Fields:**
-{extracted_fields}
-
-**Errors to Fix:**
-{errors}
-
-**Reference Text:**
-{text_excerpt}
-
-**Task:** Correct the errors and return valid JSON with fixed fields.
-
-**Output Format:** Return only the corrected JSON object."""
-    
-    RE_EXTRACTION_PROMPT_TEMPLATE = """Re-extract fields from this {doc_type} document. Current accuracy: {current_accuracy}% — target 90-100%.
-
-SCHEMA FIELDS (extract all):
-{schema_fields}
-
-PREVIOUS EXTRACTION (keep non-null values, fill in the rest):
-{extracted_fields}
-
-MISSING FIELDS (focus here):
-{missing_fields_list}
-
-ISSUES:
-{validation_errors}
-
-DOCUMENT:
-{document_text}
-
-Return ONLY JSON with all schema fields (keep existing + fill missing). Missing=null. No markdown."""
-    
-    SYSTEM_PROMPT = "Extract and repair data fields. Return valid JSON only."
-    
     def __init__(self):
         self.name = "SelfRepairNode"
         # Import schema map here to avoid circular imports
         from agents.extractor_agent import ExtractorAgent
         self.schema_map = ExtractorAgent.SCHEMA_MAP
         logger.info(f"{self.name} initialized")
+        # Load config values (use utils.config.Env for direct instantiation)
+        from utils.config import Env
+        self.env = Env()
+        self.max_attempts = int(self.env.get('workflow', 'max_repair_attempts', fallback=3))
+        self.llm_model = self.env.get('groq', 'model', fallback='llama-3.1-8b-instant')
+        self.llm_key = self.env.get('groq', 'api_key_b', fallback=None)
     
     def _parse_llm_response(self, content: str) -> Dict[str, Any]:
         """
-        Parse LLM JSON response with robust extraction
-        
-        Args:
-            content: LLM response content
-        
-        Returns:
-            Parsed JSON dict
-        
-        Raises:
-            ValueError if parsing fails
+        Parse LLM JSON response using repair_json.
+        Handles markdown fences, preamble text, double braces, truncated JSON.
         """
-        original_content = content
-        content = content.strip()
-        
-        # FIX: Remove double braces (Claude artifact)
-        if content.startswith('{{') and content.endswith('}}'):
-            content = content[1:-1].strip()
-            logger.debug("Removed double braces from repair response")
-        
-        # Strategy 1: Direct JSON parsing
         try:
-            result = json.loads(content)
-            logger.debug(f"Parsed JSON using Strategy 1 (direct)")
-            return result
-        except json.JSONDecodeError as e:
-            logger.debug(f"Strategy 1 failed: {e}")
-        
-        # Strategy 2: Extract from markdown code blocks
-        if "```json" in content:
-            try:
-                json_start = content.find("```json") + 7
-                json_end = content.find("```", json_start)
-                if json_end != -1:
-                    json_str = content[json_start:json_end].strip()
-                    result = json.loads(json_str)
-                    logger.debug(f"Parsed JSON using Strategy 2 (```json)")
-                    return result
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.debug(f"Strategy 2a failed: {e}")
-        
-        if "```" in content:
-            try:
-                json_start = content.find("```") + 3
-                json_end = content.find("```", json_start)
-                if json_end != -1:
-                    json_str = content[json_start:json_end].strip()
-                    result = json.loads(json_str)
-                    logger.debug(f"Parsed JSON using Strategy 2b (```)")
-                    return result
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.debug(f"Strategy 2b failed: {e}")
-        
-        # Strategy 3: Find JSON object by braces (handle nested objects + truncation)
-        try:
-            first_brace = content.find('{')
-            if first_brace != -1:
-                # Skip double brace if present
-                if content[first_brace:first_brace+2] == '{{':
-                    first_brace += 1
-                
-                brace_count = 0
-                in_string = False
-                escape_next = False
-                last_valid_end = -1
-                
-                for i in range(first_brace, len(content)):
-                    char = content[i]
-                    
-                    if escape_next:
-                        escape_next = False
-                        continue
-                    
-                    if char == '\\':
-                        escape_next = True
-                        continue
-                    
-                    if char == '"' and not escape_next:
-                        in_string = not in_string
-                        continue
-                    
-                    if not in_string:
-                        if char == '{':
-                            brace_count += 1
-                        elif char == '}':
-                            brace_count -= 1
-                            if brace_count == 0:
-                                json_str = content[first_brace:i+1]
-                                result = json.loads(json_str)
-                                logger.debug(f"Parsed JSON using Strategy 3 (brace counting)")
-                                return result
-                            else:
-                                # Track last complete sub-object
-                                last_valid_end = i
-                
-                # If we got here, JSON is truncated. Try to salvage what we can.
-                if last_valid_end > first_brace:
-                    # Find last comma before truncation
-                    json_portion = content[first_brace:last_valid_end+1]
-                    last_comma = json_portion.rfind(',')
-                    if last_comma > 0:
-                        json_portion = json_portion[:last_comma]
-                    
-                    # Close remaining braces
-                    open_braces = json_portion.count('{') - json_portion.count('}')
-                    for _ in range(open_braces):
-                        json_portion += '}'
-                    
-                    try:
-                        result = json.loads(json_portion)
-                        logger.warning(f"Recovered truncated JSON with {len(result)} fields")
-                        return result
-                    except:
-                        pass
-        except json.JSONDecodeError as e:
-            logger.debug(f"Strategy 3 failed: {e}")
+            result = repair_json(content, return_objects=True)
+            if isinstance(result, dict):
+                logger.debug("Parsed repair response using repair_json")
+                return result
+            raise ValueError(f"repair_json returned {type(result).__name__}, expected dict")
         except Exception as e:
-            logger.debug(f"Strategy 3 exception: {e}")
-        
-        # All strategies failed - log full response for debugging
-        logger.error(f"Failed to parse JSON after all strategies. Response length: {len(original_content)}")
-        logger.error(f"First 1000 chars: {original_content[:1000]}")
-        logger.error(f"Last 500 chars: {original_content[-500:] if len(original_content) > 500 else original_content}")
-        raise ValueError(f"Could not parse JSON from response. Length: {len(original_content)}, First 500 chars: {original_content[:500]}")
+            logger.error(f"repair_json failed for self-repair response: {e}")
+            logger.error(f"First 500 chars: {content[:500]}")
+            raise ValueError(f"Could not parse JSON from repair response: {e}")
     
     def _get_schema_fields(self, doc_type) -> str:
         """
@@ -252,20 +115,15 @@ Return ONLY JSON with all schema fields (keep existing + fill missing). Missing=
         """
         logger.info(f"{self.name}: Starting self-repair")
         start_time = time.time()
-        
-        # Check repair attempt limit
-        max_attempts = 3  # Match workflow GraphConfig.max_repair_attempts
+        # Use config-driven max_attempts
         current_attempts = state.get("repair_attempts", 0)
-        
-        if current_attempts >= max_attempts:
-            logger.warning(f"{self.name}: Max repair attempts reached ({max_attempts})")
-            # Mark as failed and stop
+        if current_attempts >= self.max_attempts:
+            logger.warning(f"{self.name}: Max repair attempts reached ({self.max_attempts})")
             state["validation_status"] = ValidationStatus.FAILED
             state["validation_errors"].append("Max repair attempts reached")
             return state
-        
         state["repair_attempts"] = current_attempts + 1
-        logger.info(f"{self.name}: Repair attempt {state['repair_attempts']} of {max_attempts}")
+        logger.info(f"{self.name}: Repair attempt {state['repair_attempts']} of {self.max_attempts}")
         
         try:
             extracted_fields = state["extracted_fields"] or {}
@@ -295,7 +153,7 @@ Return ONLY JSON with all schema fields (keep existing + fill missing). Missing=
                 else:
                     missing_fields_list = "  (unknown — extract all schema fields)"
 
-                prompt = self.RE_EXTRACTION_PROMPT_TEMPLATE.format(
+                prompt = SELF_REPAIR_RE_EXTRACTION_PROMPT.format(
                     doc_type=doc_type.value if hasattr(doc_type, 'value') else str(doc_type),
                     current_accuracy=accuracy_pct,
                     document_text=text_excerpt,
@@ -306,20 +164,20 @@ Return ONLY JSON with all schema fields (keep existing + fill missing). Missing=
                 )
             else:
                 logger.info(f"{self.name}: Using REPAIR mode (fixing validation errors)")
-                prompt = self.REPAIR_PROMPT_TEMPLATE.format(
+                prompt = SELF_REPAIR_PROMPT.format(
                     extracted_fields=json.dumps(extracted_fields, indent=2),
                     errors="\n".join(f"- {error}" for error in errors),
                     text_excerpt=text_excerpt
                 )
             
-            # 70b on key-2 for quality repair without hitting key-1 rate limit
+            # Use config-driven LLM model and key
             response = llm_client.generate(
                 prompt=prompt,
-                system_prompt=self.SYSTEM_PROMPT,
+                system_prompt=SELF_REPAIR_SYSTEM_PROMPT,
                 temperature=0.0,
                 max_tokens=1200,
-                groq_model="llama-3.3-70b-versatile",
-                groq_key=2  # Secondary key (heavy: ~1200 tok output)
+                groq_model=self.llm_model,
+                groq_key=self.llm_key
             )
             
             latency = time.time() - start_time
@@ -362,11 +220,11 @@ Return ONLY JSON with all schema fields (keep existing + fill missing). Missing=
                     tokens_used=response["tokens"]["input"] + response["tokens"]["output"],
                     error_occurred=False,
                     llm_provider=response["provider"],
-                    system_prompt=self.SYSTEM_PROMPT,
+                    system_prompt=SELF_REPAIR_SYSTEM_PROMPT,
                     user_prompt=response.get("user_prompt", ""),
                     context_data={
                         "repair_attempt": current_attempts + 1,
-                        "max_attempts": 3,
+                        "max_attempts": self.max_attempts,
                         "validation_errors": errors,
                         "field_count": len(extracted_fields),
                         "mode": "re_extraction" if needs_re_extraction else "repair",
@@ -412,7 +270,7 @@ Return ONLY JSON with all schema fields (keep existing + fill missing). Missing=
                     error_occurred=True,
                     error_message=str(e),
                     llm_provider="unknown",
-                    system_prompt=self.SYSTEM_PROMPT,
+                    system_prompt=SELF_REPAIR_SYSTEM_PROMPT,
                     user_prompt="",
                     context_data={
                         "repair_attempt": current_attempts + 1,

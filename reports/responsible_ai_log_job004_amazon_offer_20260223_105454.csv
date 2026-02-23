@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:54:54.000,315.2396680987592,966,295,101,False,,0,"--- Document: job004_amazon_offer.txt ---
+Content ","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:54:54.315,800.1339231630529,936,415,479,False,,0,"--- Document: job004_amazon_offer.txt ---
+Content ","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:54:55.115,332.55065355825514,1548,259,157,False,,0,"--- Document: job004_amazon_offer.txt ---
+Content ","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:54:55.447,852.6707020516369,705,808,118,False,,0,"--- Document: job004_amazon_offer.txt ---
+Content ","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

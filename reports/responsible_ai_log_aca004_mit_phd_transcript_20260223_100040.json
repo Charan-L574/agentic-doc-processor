@@ -1,0 +1,98 @@
+{
+  "document": "data\\samples\\aca004_mit_phd_transcript.txt",
+  "timestamp": "2026-02-23T10:00:40",
+  "trace_logs": [
+    {
+      "agent_name": "ClassifierAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca004_mit_phd_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca004_mit_phd_transcript.txt",
+        "text_length": 3537,
+        "excerpt_length": 481
+      },
+      "output_data": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ClassifierAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:00:40.000",
+      "latency_ms": 333.39932044970413,
+      "tokens_used": 901,
+      "tokens_input": 478,
+      "tokens_output": 171,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ExtractorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca004_mit_phd_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca004_mit_phd_transcript.txt",
+        "text_length": 3271,
+        "excerpt_length": 958
+      },
+      "output_data": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ExtractorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:00:40.333",
+      "latency_ms": 1041.8827284984075,
+      "tokens_used": 1516,
+      "tokens_input": 339,
+      "tokens_output": 402,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "ValidatorAgent",
+      "llm_model_used": "llama-3.3-70b-versatile",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca004_mit_phd_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca004_mit_phd_transcript.txt",
+        "text_length": 622,
+        "excerpt_length": 295
+      },
+      "output_data": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"ValidatorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:00:41.375",
+      "latency_ms": 326.57654590558116,
+      "tokens_used": 847,
+      "tokens_input": 488,
+      "tokens_output": 358,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    },
+    {
+      "agent_name": "RedactorAgent",
+      "llm_model_used": "llama-3.1-8b-instant",
+      "llm_provider": "groq",
+      "input_data": "--- Document: aca004_mit_phd_transcript.txt ---\nContent excerpt from academic document...",
+      "system_prompt": "Process academic document. Return JSON.",
+      "user_prompt": "Extract and validate academic document.",
+      "context_data": {
+        "file_path": "data\\samples\\aca004_mit_phd_transcript.txt",
+        "text_length": 2798,
+        "excerpt_length": 403
+      },
+      "output_data": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\", \"doc_type\": \"academic\"}",
+      "raw_output": "{\"agent\": \"RedactorAgent\", \"status\": \"completed\"}",
+      "timestamp": "2026-02-23 10:00:41.701",
+      "latency_ms": 1221.4131103349862,
+      "tokens_used": 1730,
+      "tokens_input": 968,
+      "tokens_output": 379,
+      "error_occurred": false,
+      "error_message": null,
+      "retry_attempt": 0
+    }
+  ]
+}

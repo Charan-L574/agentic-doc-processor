@@ -6,22 +6,24 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+from json_repair import repair_json
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from graph.state import DocumentState
 from schemas.document_schemas import (
     DocumentType,
     ExtractionResult,
     ResponsibleAILog,
     FinancialDocumentFields,
-    ContractFields,
     ResumeFields,
     JobOfferFields,
     MedicalRecordFields,
     IdDocumentFields,
     AcademicFields,
-    GeneralDocumentFields,
 )
 from utils.llm_client import llm_client, LLMProvider
 from utils.logger import logger
+from prompts import EXTRACTOR_PROMPT, EXTRACTOR_SYSTEM_PROMPT
 
 
 class ExtractorAgent:
@@ -202,63 +204,6 @@ Output: {
 """
     }
 
-    # Schema field lists shown in the prompt so LLM knows EXACTLY what to return
-    SCHEMA_FIELDS = {
-        DocumentType.FINANCIAL_DOCUMENT: [
-            "document_number", "document_date", "due_date", "issuer_name", "issuer_address",
-            "recipient_name", "recipient_address", "total_amount", "tax_amount", "currency",
-            "payment_method", "line_items"
-        ],
-        DocumentType.RESUME: [
-            "candidate_name", "email", "phone", "address", "linkedin_url", "summary",
-            "education", "work_experience", "skills", "certifications", "languages"
-        ],
-        DocumentType.JOB_OFFER: [
-            "candidate_name", "company_name", "position_title", "offer_date", "start_date",
-            "salary", "employment_type", "work_location", "department", "reporting_to",
-            "benefits", "conditions", "deadline_to_accept"
-        ],
-        DocumentType.MEDICAL_RECORD: [
-            "patient_name", "patient_id", "date_of_birth", "visit_date", "physician_name",
-            "department", "diagnosis", "prescribed_medications", "lab_results",
-            "follow_up_date", "notes"
-        ],
-        DocumentType.ID_DOCUMENT: [
-            "document_type", "document_number", "full_name", "date_of_birth", "gender",
-            "nationality", "place_of_birth", "address", "issue_date", "expiration_date",
-            "issuing_authority"
-        ],
-        DocumentType.ACADEMIC: [
-            "document_type", "student_name", "student_id", "institution_name",
-            "degree_program", "graduation_date", "gpa", "doi", "courses", "honors"
-        ],
-    }
-
-    EXTRACTION_PROMPT_TEMPLATE = """You are extracting structured data from a {doc_type} document.
-
-STEP 1 — Study this correctly extracted example for a {doc_type}:
-{few_shot_examples}
-
-STEP 2 — Extract at least 15 relevant fields from the document below that best identify and characterise it as a {doc_type}. Choose the most meaningful fields for this document type.
-
-STEP 3 — Rules:
-- Use snake_case field names (e.g. candidate_name, date_of_birth, company_name)
-- Match field names from the example above as closely as possible
-- dates → YYYY-MM-DD format
-- money → float without $ or commas
-- names → Title Case
-- list fields (work_experience, education, skills, certifications, medications, courses, etc.) → ALWAYS return as array, use [] if none found
-- work_experience: each entry MUST have: job_title, employer, start_date, end_date, responsibilities
-- education: each entry MUST have: degree, institution, graduation_date, gpa
-- Use null for missing scalar fields, [] for missing list fields
-
-DOCUMENT:
-{document_text}
-
-Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
-    
-    SYSTEM_PROMPT = "Document extraction engine. Return JSON only with exact schema field names. Dates=YYYY-MM-DD, money=float, missing=null."
-    
     def __init__(self):
         self.name = "ExtractorAgent"
         logger.info(f"{self.name} initialized")
@@ -353,57 +298,24 @@ Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
     
     def _chunk_text(self, text: str, max_length: int = 6000, overlap: int = 500) -> list[str]:
         """
-        Split text into chunks if too long, with overlap to prevent data loss
-        
+        Split text into chunks using LangChain's RecursiveCharacterTextSplitter.
+        Splits on natural boundaries (paragraphs → lines → words) before falling
+        back to character-level splitting, with configurable overlap.
+
         Args:
             text: Full text
-            max_length: Maximum chunk length (6000 for Claude's large context window)
-                       Increased from 3500 to handle most documents in single chunk
-            overlap: Characters to overlap between chunks (prevents split field loss)
-        
+            max_length: Maximum chunk size in characters (default 6000)
+            overlap: Overlap between consecutive chunks (default 500)
+
         Returns:
             List of text chunks with overlap
         """
-        if len(text) <= max_length:
-            return [text]
-        
-        chunks = []
-        words = text.split()
-        current_chunk = []
-        current_length = 0
-        
-        # Track overlap words for next chunk
-        overlap_words = []
-        overlap_length = 0
-        
-        for word in words:
-            word_length = len(word) + 1  # +1 for space
-            
-            if current_length + word_length > max_length:
-                # Save current chunk
-                chunks.append(" ".join(current_chunk))
-                
-                # Start next chunk with overlap from end of previous chunk
-                current_chunk = overlap_words.copy() + [word]
-                current_length = overlap_length + word_length
-                overlap_words = []
-                overlap_length = 0
-            else:
-                current_chunk.append(word)
-                current_length += word_length
-                
-                # Track last N characters for overlap
-                overlap_words.append(word)
-                overlap_length += word_length
-                
-                # Keep only last overlap characters
-                while overlap_length > overlap and len(overlap_words) > 1:
-                    removed_word = overlap_words.pop(0)
-                    overlap_length -= len(removed_word) + 1
-        
-        if current_chunk:
-            chunks.append(" ".join(current_chunk))
-        
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=max_length,
+            chunk_overlap=overlap,
+            length_function=len,
+        )
+        chunks = splitter.split_text(text)
         logger.info(f"Text split into {len(chunks)} chunks with {overlap}-char overlap")
         return chunks
     
@@ -426,7 +338,7 @@ Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
         # Get few-shot example for this document type
         few_shot_examples = self.FEW_SHOT_EXAMPLES.get(doc_type, "")
 
-        prompt = self.EXTRACTION_PROMPT_TEMPLATE.format(
+        prompt = EXTRACTOR_PROMPT.format(
             doc_type=doc_type.value,
             few_shot_examples=few_shot_examples,
             document_text=chunk
@@ -434,7 +346,7 @@ Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
         
         response = llm_client.generate(
             prompt=prompt,
-            system_prompt=self.SYSTEM_PROMPT,
+            system_prompt=EXTRACTOR_SYSTEM_PROMPT,
             temperature=0.0,
             max_tokens=1500,
             force_provider=force_provider,
@@ -442,183 +354,21 @@ Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
             groq_key=2  # Secondary key (heavy: ~1500 tok output)
         )
         
-        # Parse JSON response with robust extraction
+        # Parse JSON response using json-repair
+        # Handles: preamble text, markdown fences, double braces, truncated/unclosed JSON
         content = response["content"].strip()
-        
-        # Log response details
         logger.debug(f"Extractor LLM response length: {len(content)} chars")
-        
-        # FIX 1: Remove double braces (Claude sometimes adds extra layer)
-        if content.startswith('{{') and content.endswith('}}'):
-            content = content[1:-1].strip()
-            logger.debug("Removed double braces from JSON")
-        
-        # Strategy 1: Direct JSON parsing
+
         try:
-            extracted = json.loads(content)
-            logger.debug("Parsed JSON using Strategy 1 (direct)")
-            return extracted, response
-        except json.JSONDecodeError as e:
-            logger.debug(f"Strategy 1 failed at position {e.pos}: {e.msg}")
-            pass
-        
-        # Strategy 2: Remove text before JSON (handle LLM preambles)
-        try:
-            # Find first { and last }
-            json_start = content.find('{')
-            json_end = content.rfind('}') + 1
-            if json_start != -1 and json_end > json_start:
-                json_str = content[json_start:json_end]
-                # Remove double braces if present
-                if json_str.startswith('{{') and json_str.endswith('}}'):
-                    json_str = json_str[1:-1].strip()
-                extracted = json.loads(json_str)
-                logger.debug("Parsed JSON using Strategy 2 (extracted from text)")
-                return extracted, response
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.debug(f"Strategy 2 failed: {e}")
-            pass
-        
-        # Strategy 3: Extract from markdown code blocks
-        if "```json" in content:
-            try:
-                json_start = content.find("```json") + 7
-                json_end = content.find("```", json_start)
-                if json_end != -1:
-                    json_str = content[json_start:json_end].strip()
-                    extracted = json.loads(json_str)
-                    logger.debug("Parsed JSON using Strategy 3 (```json)")
-                    return extracted, response
-            except json.JSONDecodeError as e:
-                logger.debug(f"Strategy 2a failed: {e}")
-        
-        if "```" in content:
-            try:
-                json_start = content.find("```") + 3
-                json_end = content.find("```", json_start)
-                if json_end != -1:
-                    json_str = content[json_start:json_end].strip()
-                    extracted = json.loads(json_str)
-                    logger.debug("Parsed JSON using Strategy 2b (```)")
-                    return extracted, response
-            except json.JSONDecodeError as e:
-                logger.debug(f"Strategy 2b failed: {e}")
-        
-        # Strategy 3: Find JSON object by braces (handle nested objects and strings)
-        try:
-            first_brace = content.find('{')
-            if first_brace != -1:
-                brace_count = 0
-                in_string = False
-                escape_next = False
-                
-                for i in range(first_brace, len(content)):
-                    char = content[i]
-                    
-                    if escape_next:
-                        escape_next = False
-                        continue
-                    
-                    if char == '\\\\':
-                        escape_next = True
-                        continue
-                    
-                    if char == '\"' and not escape_next:
-                        in_string = not in_string
-                        continue
-                    
-                    if not in_string:
-                        if char == '{':
-                            brace_count += 1
-                        elif char == '}':
-                            brace_count -= 1
-                            if brace_count == 0:
-                                json_str = content[first_brace:i+1]
-                                extracted = json.loads(json_str)
-                                logger.debug(f"Parsed JSON using Strategy 3 (brace counting)")
-                                return extracted, response
-        except json.JSONDecodeError as e:
-            logger.debug(f"Strategy 3 failed: {e}")
+            repaired = repair_json(content, return_objects=True)
+            if not isinstance(repaired, dict):
+                raise ValueError(f"repair_json returned {type(repaired).__name__}, expected dict")
+            logger.debug("Parsed JSON using repair_json")
+            return repaired, response
         except Exception as e:
-            logger.debug(f"Strategy 3 exception: {e}")
-        
-        # Strategy 4: Try to auto-complete truncated JSON
-        def _count_open_structures(s: str):
-            """Count unclosed braces and brackets, ignoring string contents."""
-            open_b, open_br = 0, 0
-            in_str, esc = False, False
-            for ch in s:
-                if esc:
-                    esc = False; continue
-                if ch == '\\':
-                    esc = True; continue
-                if ch == '"':
-                    in_str = not in_str; continue
-                if not in_str:
-                    if ch == '{': open_b += 1
-                    elif ch == '}': open_b -= 1
-                    elif ch == '[': open_br += 1
-                    elif ch == ']': open_br -= 1
-            return open_b, open_br
-
-        try:
-            first_brace = content.find('{')
-            if first_brace != -1:
-                json_str = content[first_brace:]
-                if json_str.startswith('{{'):
-                    json_str = json_str[1:]
-
-                open_braces, open_brackets = _count_open_structures(json_str)
-
-                if open_braces > 0 or open_brackets > 0:
-                    logger.warning(f"JSON truncated: {open_braces} unclosed braces, {open_brackets} unclosed brackets")
-                    json_str = json_str.rstrip()
-
-                    # Step 1: Cut back to the last fully-closed value
-                    # Find the last position where all strings are closed (even quote count so far)
-                    last_safe = 0
-                    in_str2, esc2 = False, False
-                    b2, br2 = 0, 0
-                    for i, ch in enumerate(json_str):
-                        if esc2:
-                            esc2 = False; continue
-                        if ch == '\\':
-                            esc2 = True; continue
-                        if ch == '"':
-                            in_str2 = not in_str2; continue
-                        if not in_str2:
-                            if ch in ('{', '['): b2 += (ch == '{'); br2 += (ch == '[')
-                            elif ch == '}': b2 -= 1
-                            elif ch == ']': br2 -= 1
-                            # Record a "safe" position after every complete value at top-level
-                            if ch in (',', '}', ']') and not in_str2:
-                                last_safe = i + 1
-
-                    # Cut to last safe point and strip trailing comma
-                    if last_safe > 0:
-                        json_str = json_str[:last_safe].rstrip().rstrip(',')
-
-                    # Step 2: Recount and close
-                    open_braces, open_brackets = _count_open_structures(json_str)
-                    for _ in range(open_brackets):
-                        json_str += ']'
-                    for _ in range(open_braces):
-                        json_str += '}'
-
-                    logger.debug(f"Auto-completing JSON: closing {open_brackets} brackets, {open_braces} braces")
-                    extracted = json.loads(json_str)
-                    logger.warning("Parsed truncated JSON using Strategy 4 (auto-complete)")
-                    return extracted, response
-        except json.JSONDecodeError as e:
-            logger.debug(f"Strategy 4 failed: {e}")
-        except Exception as e:
-            logger.debug(f"Strategy 4 exception: {e}")
-        
-        # All strategies failed
-        logger.error(f"Failed to parse extraction response. Length: {len(content)}")
-        logger.error(f"First 1000 chars: {content[:1000]}")
-        logger.error(f"Last 1000 chars: {content[-1000:] if len(content) > 1000 else content}")
-        raise ValueError(f"Could not parse JSON from response. Length: {len(content)}, First 500 chars: {content[:500]}")
+            logger.error(f"Failed to parse extraction response: {e}")
+            logger.error(f"First 500 chars: {content[:500]}")
+            raise ValueError(f"Could not parse JSON from response: {e}")
     
     def _merge_extracted_fields(
         self,
@@ -743,7 +493,7 @@ Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
                     tokens_used=total_tokens,
                     error_occurred=False,
                     llm_provider=last_response.get("provider", "unknown"),
-                    system_prompt=self.SYSTEM_PROMPT,
+                    system_prompt=EXTRACTOR_SYSTEM_PROMPT,
                     user_prompt=last_response.get("user_prompt", ""),
                     context_data={
                         "doc_type": doc_type.value,
@@ -792,7 +542,7 @@ Return ONLY valid JSON with at least 15 fields. No markdown, no explanation."""
                     error_occurred=True,
                     error_message=str(e),
                     llm_provider="unknown",
-                    system_prompt=self.SYSTEM_PROMPT,
+                    system_prompt=EXTRACTOR_SYSTEM_PROMPT,
                     user_prompt="",
                     context_data={
                         "doc_type": state.get("doc_type", DocumentType.FINANCIAL_DOCUMENT).value if state.get("doc_type") else "unknown",

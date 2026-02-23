@@ -1,0 +1,265 @@
+{
+  "document": "C:\\Users\\charanl\\Desktop\\agentic-doc-processor-main\\temp_uploads\\1CR22AI032_CHARAN_L_RESUME.pdf",
+  "doc_type": "resume",
+  "timestamp": "2026-02-23T11:25:53.153808",
+  "metrics": {
+    "extraction_accuracy": 1.0,
+    "pii_recall": 0.6,
+    "pii_precision": 0.2,
+    "workflow_success": true,
+    "total_processing_time": 4.858939,
+    "agent_latencies": {
+      "ClassifierAgent": 1.4005820751190186,
+      "ExtractorAgent": 1.6408629417419434,
+      "ValidatorAgent": 0.0,
+      "RedactorAgent": 1.7683792114257812
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23 11:25:53.126776"
+  },
+  "classification": {
+    "doc_type": "resume",
+    "confidence": 0.9,
+    "reasoning": "Work Experience/Skills present (Competitive Programming Hackathon, 2024)",
+    "timestamp": "2026-02-23 11:25:49.672816"
+  },
+  "extraction": {
+    "fields_count": 16,
+    "fields": {
+      "candidate_name": "Charan L",
+      "email": "charanlokesh7304@gmail.com",
+      "phone": "+91 9066898399",
+      "address": "No.1/2, Vardaraju Building, Near OM UPVC Windows, 4th Floor, Kodigehalli, Kadugodi Post, Bangalore - 560067",
+      "linkedin_url": "https://www.linkedin.com/in/charan-l-0b4b51309",
+      "summary": "To secure a challenging position in a reputable company where I can broaden my knowledge, skills, and learning.",
+      "date_of_birth": "2004-07-05",
+      "gender": "Male",
+      "nationality": "Indian",
+      "education": [
+        {
+          "degree": "Bachelor Of Engineering In Artificial Intelligence And Machine Learning",
+          "institution": "Cmr Institute Of Technology",
+          "graduation_date": null,
+          "gpa": 8.89
+        },
+        {
+          "degree": "Pre University Course In Science",
+          "institution": "St Joseph's Indian Composite Pu College",
+          "graduation_date": "2022-01-01",
+          "gpa": 93.0
+        },
+        {
+          "degree": "10th Grade",
+          "institution": "Amara Jyothi English School",
+          "graduation_date": "2020-01-01",
+          "gpa": 91.33
+        }
+      ],
+      "work_experience": [],
+      "skills": [
+        "Java",
+        "Python",
+        "Html",
+        "Css",
+        "Javascript",
+        "Node.js",
+        "Express.js",
+        "Excel",
+        "Powerbi",
+        "Sql",
+        "Mongodb"
+      ],
+      "certifications": [
+        "Certified In Django Web Framework",
+        "Certified In Data Analysis With Spreadsheets And Sql",
+        "Certified In Apis Django Rest Framework"
+      ],
+      "languages": [
+        "English",
+        "Kannada",
+        "Telugu"
+      ],
+      "projects": [
+        {
+          "project_name": "Hospital Management System",
+          "description": "A comprehensive solution designed to streamline hospital operations.",
+          "tech_stack": [
+            "Html",
+            "Css",
+            "Mongodb",
+            "React.js",
+            "Node.js",
+            "Express.js"
+          ]
+        },
+        {
+          "project_name": "Smart Classroom Management System",
+          "description": "A web-based classroom platform to manage online learning and classroom activities.",
+          "tech_stack": [
+            "Html",
+            "Css",
+            "Javascript",
+            "Node.js",
+            "Express.js",
+            "Mongodb",
+            "Websockets"
+          ]
+        },
+        {
+          "project_name": "Smartpdf Analyst",
+          "description": "A conversational AI application to upload and interact with multiple PDF documents.",
+          "tech_stack": [
+            "Streamlit",
+            "Hugging Face Transformers",
+            "Faiss",
+            "Pypdf2",
+            "Langchain"
+          ]
+        }
+      ],
+      "co_curricular_activities": [
+        {
+          "activity_name": "Patent Design And Creation Workshop",
+          "description": "Attended a workshop on patent design and creation."
+        },
+        {
+          "activity_name": "Ai: What It Is And What It Is Not Workshop",
+          "description": "Attended a workshop on AI."
+        },
+        {
+          "activity_name": "Genai Hackfest Hackathon",
+          "description": "Participated in GenAI Hackfest Hackathon."
+        },
+        {
+          "activity_name": "Competitive Programming Hackathon",
+          "description": "Participated in Competitive Programming Hackathon."
+        }
+      ]
+    }
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "candidate_name": "Charan L",
+      "email": "charanlokesh7304@gmail.com",
+      "phone": "+91 9066898399",
+      "address": "No.1/2, Vardaraju Building, Near OM UPVC Windows, 4th Floor, Kodigehalli, Kadugodi Post, Bangalore - 560067",
+      "linkedin_url": "https://www.linkedin.com/in/charan-l-0b4b51309",
+      "summary": "To secure a challenging position in a reputable company where I can broaden my knowledge, skills, and learning.",
+      "date_of_birth": "2004-07-05",
+      "gender": "Male",
+      "nationality": "Indian",
+      "education": [
+        {
+          "degree": "Bachelor Of Engineering In Artificial Intelligence And Machine Learning",
+          "institution": "Cmr Institute Of Technology",
+          "graduation_date": null,
+          "gpa": 8.89
+        },
+        {
+          "degree": "Pre University Course In Science",
+          "institution": "St Joseph's Indian Composite Pu College",
+          "graduation_date": "2022-01-01",
+          "gpa": 93.0
+        },
+        {
+          "degree": "10th Grade",
+          "institution": "Amara Jyothi English School",
+          "graduation_date": "2020-01-01",
+          "gpa": 91.33
+        }
+      ],
+      "work_experience": [],
+      "skills": [
+        "Java",
+        "Python",
+        "Html",
+        "Css",
+        "Javascript",
+        "Node.js",
+        "Express.js",
+        "Excel",
+        "Powerbi",
+        "Sql",
+        "Mongodb"
+      ],
+      "certifications": [
+        "Certified In Django Web Framework",
+        "Certified In Data Analysis With Spreadsheets And Sql",
+        "Certified In Apis Django Rest Framework"
+      ],
+      "languages": [
+        "English",
+        "Kannada",
+        "Telugu"
+      ],
+      "projects": [
+        {
+          "project_name": "Hospital Management System",
+          "description": "A comprehensive solution designed to streamline hospital operations.",
+          "tech_stack": [
+            "Html",
+            "Css",
+            "Mongodb",
+            "React.js",
+            "Node.js",
+            "Express.js"
+          ]
+        },
+        {
+          "project_name": "Smart Classroom Management System",
+          "description": "A web-based classroom platform to manage online learning and classroom activities.",
+          "tech_stack": [
+            "Html",
+            "Css",
+            "Javascript",
+            "Node.js",
+            "Express.js",
+            "Mongodb",
+            "Websockets"
+          ]
+        },
+        {
+          "project_name": "Smartpdf Analyst",
+          "description": "A conversational AI application to upload and interact with multiple PDF documents.",
+          "tech_stack": [
+            "Streamlit",
+            "Hugging Face Transformers",
+            "Faiss",
+            "Pypdf2",
+            "Langchain"
+          ]
+        }
+      ],
+      "co_curricular_activities": [
+        {
+          "activity_name": "Patent Design And Creation Workshop",
+          "description": "Attended a workshop on patent design and creation."
+        },
+        {
+          "activity_name": "Ai: What It Is And What It Is Not Workshop",
+          "description": "Attended a workshop on AI."
+        },
+        {
+          "activity_name": "Genai Hackfest Hackathon",
+          "description": "Participated in GenAI Hackfest Hackathon."
+        },
+        {
+          "activity_name": "Competitive Programming Hackathon",
+          "description": "Participated in Competitive Programming Hackathon."
+        }
+      ]
+    },
+    "timestamp": "2026-02-23 11:25:51.339062"
+  },
+  "redaction": {
+    "pii_count": 15,
+    "precision": 0.2,
+    "recall": 0.6
+  },
+  "errors": []
+}

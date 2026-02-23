@@ -37,7 +37,6 @@ ENV/
 *~
 
 # Reports and Logs
-reports/
 logs/*
 !logs/.gitkeep
 

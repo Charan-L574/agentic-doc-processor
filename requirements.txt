@@ -1,7 +1,7 @@
 # Core Dependencies
 python-dotenv
 pydantic
-pydantic-settings
+json-repair
 
 # LangChain & LangGraph
 langchain

@@ -330,7 +330,7 @@ class DocumentProcessingWorkflow:
     
     def _generate_simple_mermaid(self) -> str:
         """Generate a clean, user-friendly Mermaid diagram showing the workflow"""
-        return """graph LR
+        return """graph TD
     START([🚀 START]) --> classify[📋 Classify<br/>Document Type]
     classify --> extract[📤 Extract<br/>Structured Fields]
     extract --> validate[✓ Validate<br/>Schema & Rules]

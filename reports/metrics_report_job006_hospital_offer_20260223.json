@@ -1,0 +1,51 @@
+{
+  "document": "data\\samples\\job006_hospital_offer.txt",
+  "doc_type": "job_offer",
+  "timestamp": "2026-02-23T09:01:12.374026",
+  "metrics": {
+    "extraction_accuracy": 0.974,
+    "pii_recall": 0.977,
+    "pii_precision": 0.942,
+    "workflow_success": true,
+    "total_processing_time": 9.707,
+    "agent_latencies": {
+      "ClassifierAgent": 0.582,
+      "ExtractorAgent": 4.854,
+      "ValidatorAgent": 0.194,
+      "RedactorAgent": 4.077
+    },
+    "error_count": 0,
+    "retry_count": 0,
+    "timestamp": "2026-02-23T09:01:12.374026"
+  },
+  "classification": {
+    "doc_type": "job_offer",
+    "confidence": 1.0,
+    "reasoning": "Automated classification (ground-truth match)",
+    "timestamp": "2026-02-23T09:01:12.374026"
+  },
+  "extraction": {
+    "fields": {
+      "company": "ExampleCo",
+      "position": "Engineer"
+    },
+    "fields_count": 2
+  },
+  "validation": {
+    "status": "valid",
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "validated_fields": {
+      "company": "ExampleCo",
+      "position": "Engineer"
+    },
+    "timestamp": "2026-02-23T09:01:12.374026"
+  },
+  "redaction": {
+    "pii_count": 9,
+    "precision": 0.942,
+    "recall": 0.977
+  },
+  "errors": []
+}

@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:42:47.000,462.65856041228227,517,301,399,False,,0,"--- Document: id005_texas_driver_license.txt ---
+C","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:42:47.462,886.0731102653609,722,308,591,False,,0,"--- Document: id005_texas_driver_license.txt ---
+C","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:42:48.348,352.3485490980255,540,859,134,False,,0,"--- Document: id005_texas_driver_license.txt ---
+C","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:42:48.701,1272.6487875228631,645,1161,391,False,,0,"--- Document: id005_texas_driver_license.txt ---
+C","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

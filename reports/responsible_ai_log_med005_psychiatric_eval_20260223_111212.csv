@@ -1,0 +1,9 @@
+agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
+ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:12:12.000,426.1339001318725,756,880,391,False,,0,"--- Document: med005_psychiatric_eval.txt ---
+Cont","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
+ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:12:12.426,780.5699247393392,400,561,246,False,,0,"--- Document: med005_psychiatric_eval.txt ---
+Cont","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
+ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:12:13.206,263.0548054647926,1642,920,264,False,,0,"--- Document: med005_psychiatric_eval.txt ---
+Cont","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
+RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:12:13.469,1125.49173317291,837,773,342,False,,0,"--- Document: med005_psychiatric_eval.txt ---
+Cont","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "
