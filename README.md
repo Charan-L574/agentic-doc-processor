@@ -152,6 +152,26 @@ MAX_REPAIR_ATTEMPTS=1
 MIN_EXTRACTION_ACCURACY=0.80
 ```
 
+### Local GGUF Model Setup
+
+The system includes a quantized Llama 3.1 8B model as the final fallback LLM provider:
+
+```bash
+# Model is pre-included in: models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+# Automatically uses GPU if available (NVIDIA/AMD/Apple Silicon)
+# Falls back to CPU if no GPU detected
+```
+
+Configuration in `config.ini` [local_llama] section:
+```ini
+model_name = local-gguf
+model_path = ./models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+n_gpu_layers = 35           # Number of layers to offload to GPU
+context_length = 512        # Max tokens for context window
+max_tokens = 64             # Max output tokens
+use_gpu = true              # Enable GPU acceleration
+```
+
 ---
 
 ## Running the Application
@@ -212,14 +232,15 @@ agentic-doc-processor/
 ├── schemas/
 │   └── document_schemas.py     # Pydantic schemas for all doc types
 ├── utils/
-│   ├── llm_client.py           # 4-tier LLM fallback client
+│   ├── config.py               # ConfigParser-based configuration loader
+│   ├── llm_client.py           # 5-tier LLM fallback client (Groq → Bedrock → HF → Ollama → Local)
 │   ├── document_loader.py      # Multi-format document ingestion
 │   ├── retry_decorator.py      # Tenacity retry wrapper
 │   ├── faiss_manager.py        # Optional FAISS vector lookup
 │   ├── graph_visualizer.py     # LangGraph Mermaid diagram export
 │   └── logger.py               # structlog structured logging
 ├── data/
-│   ├── samples/                # 34 sample documents (6 types)
+│   ├── samples/                # 41 sample documents (6 types)
 │   ├── evaluation_dataset_v2.csv   # 28-doc evaluation set
 │   └── sample_dataset.csv      # Demo sample set
 ├── evaluation/
@@ -227,7 +248,7 @@ agentic-doc-processor/
 │   └── test_execution_log.xlsx
 ├── tests/
 │   └── test_agents.py
-├── config.py                   # Centralised settings via Pydantic
+├── config.ini                  # Configuration file (paths, LLM settings, metrics thresholds)
 ├── streamlit_app.py            # Streamlit dashboard
 └── requirements.txt
 ```
@@ -267,6 +288,3 @@ Logs are exported to `reports/responsible_ai_{ts}.csv` and surfaced in the **Res
 
 ---
 
-## License
-
-MIT
