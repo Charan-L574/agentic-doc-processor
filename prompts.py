@@ -15,13 +15,13 @@ DECISION (first match wins):
 3. Formal offer letter from employer to candidate? → job_offer
 4. Medical diagnosis/prescription/lab (no billing)? → medical_record
 5. Physical ID card (passport, driver license, Aadhaar, PAN, voter ID, college ID card, student ID card, employee ID)? → id_document
-6. Official document issued BY institution showing grades/marks/degree (transcript/mark sheet/diploma/degree certificate)? → academic
+6. Academic/educational content (transcript/mark sheet/diploma/degree certificate/textbook/research paper/journal article/syllabus)? → academic
 
 KEY RULES:
 - Work Experience/Skills present → ALWAYS resume (even if Education section exists)
 - Written BY a person about themselves → resume
 - College ID card / Student ID card → id_document (NOT academic)
-- Issued BY an institution showing grades/scores → academic
+- Issued BY an institution showing grades/scores OR educational textbook/research content → academic
 - Medical receipt with charges → financial_document
 
 DOCUMENT:
@@ -30,7 +30,7 @@ DOCUMENT:
 Return JSON only:
 {{"doc_type": "<category>", "confidence": <0.8-1.0>, "reasoning": "<key signal>"}}"""
 
-CLASSIFIER_SYSTEM_PROMPT = "Document classifier. CRITICAL: Work Experience/Skills = resume. College/student ID card = id_document (NOT academic). Official institution-issued grades/transcript = academic. Medical receipt with charges = financial_document. Return JSON only."
+CLASSIFIER_SYSTEM_PROMPT = "Document classifier. CRITICAL: Work Experience/Skills = resume. College/student ID card = id_document (NOT academic). Academic includes transcripts, textbooks, syllabus, and research papers. Medical receipt with charges = financial_document. Return JSON only."
 
 
 # ============================================================================

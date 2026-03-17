@@ -23,6 +23,7 @@ class DocumentState(TypedDict):
     # Input
     file_path: str
     raw_text: str
+    ground_truth_pii: Optional[List[Dict[str, Any]]]
     
     # Classification
     doc_type: Optional[DocumentType]
@@ -60,6 +61,21 @@ class DocumentState(TypedDict):
     
     # Success flag
     success: bool
+
+    # HITL (Human-In-The-Loop) fields
+    hitl_required: bool                          # True when human review is needed
+    hitl_type: Optional[str]                     # "classify" | "extract"
+    hitl_resolution: Optional[str]               # "approved" | "corrected" | "rejected"
+    hitl_corrections: Optional[Dict[str, Any]]   # human-corrected field values
+    custom_doc_type: Optional[str]               # free-text doc type typed by human (not in DocumentType enum)
+
+    # Supervisor policy / orchestration metadata
+    supervisor_mode: Optional[str]               # e.g. "auto_hitl_policy"
+    supervisor_classification_confidence: float
+    supervisor_classification_decision: Optional[str]
+    supervisor_classification_reason: Optional[str]
+    supervisor_validation_decision: Optional[str]
+    supervisor_validation_reason: Optional[str]
 
 
 class GraphConfig(TypedDict):

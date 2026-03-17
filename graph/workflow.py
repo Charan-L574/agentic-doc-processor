@@ -2,11 +2,12 @@
 LangGraph Workflow - Orchestrates all agents in a stateful graph
 """
 from datetime import datetime
-from typing import Dict, Any, Literal
+from typing import Dict, Any, Literal, Optional
 from pathlib import Path
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import Command
 
 from graph.state import DocumentState, GraphConfig
 from agents import (
@@ -16,6 +17,7 @@ from agents import (
     self_repair_node,
     redactor_agent,
     reporter_agent,
+    human_review_agent,
 )
 # REVERTED: Using hybrid Presidio+LLM redactor (LLM-only had bugs)
 
@@ -53,7 +55,12 @@ class DocumentProcessingWorkflow:
         
         logger.info("DocumentProcessingWorkflow initialized")
     
-    def _initialize_state(self, file_path: str, raw_text: str) -> DocumentState:
+    def _initialize_state(
+        self,
+        file_path: str,
+        raw_text: str,
+        ground_truth_pii: Optional[list[Dict[str, Any]]] = None,
+    ) -> DocumentState:
         """
         Initialize document state
         
@@ -67,6 +74,7 @@ class DocumentProcessingWorkflow:
         return DocumentState(
             file_path=file_path,
             raw_text=raw_text,
+            ground_truth_pii=ground_truth_pii,
             doc_type=None,
             classification_result=None,
             extracted_fields=None,
@@ -85,7 +93,18 @@ class DocumentProcessingWorkflow:
             agent_timings={},
             errors=[],
             retry_count=0,
-            success=False
+            success=False,
+            hitl_required=False,
+            hitl_type=None,
+            hitl_resolution=None,
+            hitl_corrections=None,
+            custom_doc_type=None,
+            supervisor_mode="standard",
+            supervisor_classification_confidence=0.0,
+            supervisor_classification_decision="standard_pipeline",
+            supervisor_classification_reason="/process endpoint uses non-interrupt standard workflow",
+            supervisor_validation_decision=None,
+            supervisor_validation_reason=None,
         )
     
     # Node functions
@@ -238,7 +257,8 @@ class DocumentProcessingWorkflow:
     def process_document(
         self,
         file_path: str,
-        thread_id: str = "default"
+        thread_id: str = "default",
+        ground_truth_pii: Optional[list[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Process a single document through the workflow
@@ -282,7 +302,11 @@ class DocumentProcessingWorkflow:
             logger.info(f"Extracted {len(raw_text)} characters")
             
             # Initialize state
-            initial_state = self._initialize_state(str(file_path_obj), raw_text)
+            initial_state = self._initialize_state(
+                str(file_path_obj),
+                raw_text,
+                ground_truth_pii=ground_truth_pii,
+            )
             
             # Execute graph
             logger.info("Starting workflow execution")
@@ -355,3 +379,51 @@ class DocumentProcessingWorkflow:
 
 # Global workflow instance
 workflow = DocumentProcessingWorkflow()
+
+
+# ── HITL-Aware Workflow ──────────────────────────────────────────────────────
+class HITLWorkflow:
+    """
+    Thin compatibility shim — delegates all orchestration to SupervisorAgent.
+
+    The full pipeline graph (classify → supervise_classification → HITL #1 →
+    extract → validate → supervise_validation → repair/HITL #2/redact → report)
+    is owned and executed by SupervisorAgent, which is the true orchestrator.
+
+    This class exists so that any legacy code still referencing HITLWorkflow
+    continues to work without changes.
+    """
+
+    def __init__(self, config: GraphConfig = None):
+        self.config = config or GraphConfig(
+            max_repair_attempts=1,
+            enable_responsible_ai_logging=True,
+            visualize=False,
+        )
+        self._supervisor = None
+        logger.info("HITLWorkflow initialized (delegates to SupervisorAgent)")
+
+    def compile(self) -> None:
+        """No-op: the supervisor compiles its own graph via compile_workflows()."""
+        pass
+
+    def start_processing(self, file_path: str, thread_id: str) -> dict:
+        """Delegate to SupervisorAgent (set via set_supervisor)."""
+        if self._supervisor is None:
+            raise RuntimeError("HITLWorkflow: supervisor not set. Call set_supervisor() first.")
+        return self._supervisor.start_processing(file_path, thread_id)
+
+    def resume_processing(self, thread_id: str, human_input: dict) -> dict:
+        """Delegate to SupervisorAgent (set via set_supervisor)."""
+        if self._supervisor is None:
+            raise RuntimeError("HITLWorkflow: supervisor not set. Call set_supervisor() first.")
+        return self._supervisor.resume_processing(thread_id, human_input)
+
+    def set_supervisor(self, supervisor) -> None:
+        """Wire this shim to a SupervisorAgent instance after construction."""
+        self._supervisor = supervisor
+
+
+# Global HITL workflow instance — kept for API backward compatibility.
+# The actual orchestration graph lives in SupervisorAgent.
+hitl_workflow = HITLWorkflow()

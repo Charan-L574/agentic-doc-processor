@@ -64,6 +64,10 @@ class Env:
     def LOGS_DIR(self) -> Path:
         return self.PROJECT_ROOT / self.get('paths', 'logs_dir', 'logs')
 
+    @property
+    def CACHE_DIR(self) -> Path:
+        return self.PROJECT_ROOT / self.get('paths', 'cache_dir', 'data/cache')
+
     # Logging
     @property
     def LOG_LEVEL(self) -> str:
@@ -77,6 +81,10 @@ class Env:
     @property
     def GROQ_API_KEY_B(self) -> str:
         return self.get('groq', 'api_key_b', '')
+
+    @property
+    def GROQ_API_KEY_C(self) -> str:
+        return self.get('groq', 'api_key_c', '')
 
     @property
     def GROQ_MODEL(self) -> str:
@@ -196,6 +204,78 @@ class Env:
     @property
     def RETRY_MULTIPLIER(self) -> float:
         return self.getfloat('retry', 'multiplier', 2.0)
+
+    # LLM Response Cache
+    @property
+    def LLM_CACHE_ENABLED(self) -> bool:
+        return self.getboolean('llm_cache', 'enabled', True)
+
+    @property
+    def LLM_CACHE_TTL_SECONDS(self) -> int:
+        return self.getint('llm_cache', 'ttl_seconds', 86400)
+
+    @property
+    def LLM_CACHE_MAX_ENTRIES(self) -> int:
+        return self.getint('llm_cache', 'max_entries', 5000)
+
+    # Stack profile (local-first with cloud-ready switches)
+    @property
+    def STACK_PROFILE(self) -> str:
+        return self.get('stack', 'profile', 'local')
+
+    @property
+    def STACK_LLM_PROVIDER(self) -> str:
+        return self.get('stack', 'llm_provider', 'local_llama')
+
+    @property
+    def STACK_OCR_PROVIDER(self) -> str:
+        return self.get('stack', 'ocr_provider', 'tesseract')
+
+    @property
+    def STACK_VECTOR_PROVIDER(self) -> str:
+        return self.get('stack', 'vector_provider', 'faiss')
+
+    @property
+    def STACK_STORAGE_PROVIDER(self) -> str:
+        return self.get('stack', 'storage_provider', 'local_fs')
+
+    @property
+    def STACK_OBSERVABILITY_PROVIDER(self) -> str:
+        return self.get('stack', 'observability_provider', 'local_logs')
+
+    # LangSmith Observability
+    @property
+    def LANGSMITH_ENABLED(self) -> bool:
+        return self.getboolean('langsmith', 'enabled', False)
+
+    @property
+    def LANGSMITH_API_KEY(self) -> str:
+        return self.get('langsmith', 'api_key', '')
+
+    @property
+    def LANGSMITH_PROJECT(self) -> str:
+        return self.get('langsmith', 'project', 'agentic-doc-processor')
+
+    @property
+    def LANGSMITH_ENDPOINT(self) -> str:
+        return self.get('langsmith', 'endpoint', 'https://api.smith.langchain.com')
+
+    @property
+    def LANGSMITH_REQUEST_TRACES(self) -> bool:
+        return self.getboolean('langsmith', 'request_traces', True)
+
+    @property
+    def BEDROCK_ONLY_MODE(self) -> bool:
+        return os.environ.get('BEDROCK_ONLY_MODE', 'false').strip().lower() in {"1", "true", "yes", "on"}
+
+    @property
+    def BEDROCK_ONLY_PROVIDER(self) -> str:
+        value = os.environ.get('BEDROCK_ONLY_PROVIDER', 'nova').strip().lower()
+        return value if value in {"nova", "claude"} else "nova"
+
+    @property
+    def LOW_LATENCY_MODE(self) -> bool:
+        return os.environ.get('LOW_LATENCY_MODE', 'false').strip().lower() in {"1", "true", "yes", "on"}
 
     # Metrics
     @property

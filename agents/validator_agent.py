@@ -17,7 +17,9 @@ from schemas.document_schemas import (
     ResponsibleAILog,
 )
 from utils.llm_client import llm_client
+from utils.config import settings
 from utils.logger import logger
+from utils.knowledge_lookup import get_knowledge_lookup
 from prompts import VALIDATOR_PROMPT, VALIDATOR_SYSTEM_PROMPT
 
 
@@ -85,6 +87,11 @@ class ValidatorAgent:
         "program": "degree_program", "major": "degree_program", "field_of_study": "degree_program",
         "grad_date": "graduation_date", "completion_date": "graduation_date",
         "grade_point_average": "gpa", "cumulative_gpa": "gpa",
+        "textbook_title": "title", "book_title": "title", "book_name": "title",
+        "writer": "author", "authors": "author",
+        "isbn_10": "isbn", "isbn_13": "isbn",
+        "published_year": "publication_year", "year_published": "publication_year",
+        "publication_date": "publication_year",
         # ID document fields
         "id_number": "document_number", "passport_number": "document_number", "license_number": "document_number",
         "issued": "issue_date", "issued_date": "issue_date",
@@ -93,6 +100,8 @@ class ValidatorAgent:
     
     def __init__(self):
         self.name = "ValidatorAgent"
+        self.knowledge_lookup = None
+        self._knowledge_init_attempted = False
         
         # Validation regex patterns (used for pre-checks, not blockers)
         self.patterns = {
@@ -104,6 +113,19 @@ class ValidatorAgent:
         }
         
         logger.info(f"{self.name} initialized (LLM-powered with intelligent field mapping)")
+
+    def _ensure_knowledge_lookup(self) -> None:
+        """Lazily initialize knowledge lookup to avoid import-time heavy model loading."""
+        if self._knowledge_init_attempted:
+            return
+
+        self._knowledge_init_attempted = True
+        try:
+            self.knowledge_lookup = get_knowledge_lookup()
+            logger.info(f"{self.name}: Knowledge lookup initialized")
+        except Exception as e:
+            self.knowledge_lookup = None
+            logger.warning(f"{self.name}: Knowledge lookup unavailable, fallback mode active: {e}")
     
     def _normalize_extracted_fields(self, extracted_fields: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -150,6 +172,49 @@ class ValidatorAgent:
         }:
             return False
         return True
+
+    def _is_textbook_like_academic(
+        self,
+        extracted_fields: Dict[str, Any],
+        raw_text: Optional[str] = None,
+    ) -> bool:
+        """Detect textbook/reference-book style academic documents."""
+        if not isinstance(extracted_fields, dict):
+            extracted_fields = {}
+
+        marker_keys = {
+            "title", "book_title", "textbook_title",
+            "author", "authors", "isbn", "isbn_10", "isbn_13",
+            "publisher", "publication_year", "published_year",
+        }
+        if marker_keys.intersection(set(extracted_fields.keys())):
+            return True
+
+        doc_label = str(extracted_fields.get("document_type", "")).strip().lower()
+        if any(token in doc_label for token in ("textbook", "book", "reference")):
+            return True
+
+        text = (raw_text or "").lower()
+        return any(token in text for token in ("textbook", "isbn", "publisher", "edition", "chapter"))
+
+    def _resolve_priority_fields(
+        self,
+        extracted_fields: Dict[str, Any],
+        doc_type_label: str,
+        profile_required_fields: Optional[List[str]] = None,
+        raw_text: Optional[str] = None,
+    ) -> List[str]:
+        """Resolve required/priority fields with textbook-aware academic override."""
+        resolved_doc_type = str(doc_type_label or "unknown").strip().lower()
+        base_priority = profile_required_fields or self.FIELD_PRIORITIES.get(
+            resolved_doc_type,
+            ["title", "date"],
+        )
+
+        if resolved_doc_type == "academic" and self._is_textbook_like_academic(extracted_fields, raw_text=raw_text):
+            return ["title", "author", "isbn", "publication_year"]
+
+        return base_priority
 
     def _validate_field_format(self, field_name: str, value: Any) -> Tuple[bool, Optional[str]]:
         """
@@ -210,6 +275,7 @@ class ValidatorAgent:
         self,
         extracted_fields: Dict[str, Any],
         doc_type: DocumentType,
+        custom_doc_type: Optional[str] = None,
     ) -> Tuple[float, List[str]]:
         """
         Compute schema-completion accuracy and return the list of missing fields.
@@ -217,8 +283,6 @@ class ValidatorAgent:
         Returns:
             (accuracy_score 0.0-1.0, list_of_missing_field_names)
         """
-        from agents.extractor_agent import ExtractorAgent
-
         def _is_missing(v):
             if v is None or v == "":
                 return True
@@ -232,6 +296,28 @@ class ValidatorAgent:
             return False
 
         try:
+            if not settings.LOW_LATENCY_MODE:
+                self._ensure_knowledge_lookup()
+
+            # 1) Knowledge profile (SQLite + JSON schema / Pydantic-derived schema)
+            if (not settings.LOW_LATENCY_MODE) and self.knowledge_lookup is not None:
+                profile = self.knowledge_lookup.get_validation_profile(
+                    doc_type=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+                    custom_doc_type=custom_doc_type,
+                )
+                required_fields = self._resolve_priority_fields(
+                    extracted_fields=extracted_fields,
+                    doc_type_label=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+                    profile_required_fields=profile.get("required_fields", []) if isinstance(profile, dict) else [],
+                )
+                if required_fields:
+                    total = len(required_fields)
+                    missing = [f for f in required_fields if _is_missing(extracted_fields.get(f))]
+                    accuracy = min(1.0, (total - len(missing)) / total) if total > 0 else 1.0
+                    return accuracy, missing
+
+            # 2) Fallback to builtin extractor schema map
+            from agents.extractor_agent import ExtractorAgent
             schema_class = ExtractorAgent.SCHEMA_MAP.get(doc_type)
             if not schema_class:
                 non_null = sum(1 for v in extracted_fields.values() if not _is_missing(v))
@@ -251,7 +337,12 @@ class ValidatorAgent:
             logger.warning(f"{self.name}: accuracy computation failed: {e}")
             return 1.0, []
 
-    def _rule_based_validation(self, extracted_fields: Dict[str, Any], doc_type: DocumentType) -> Tuple[List[str], List[str]]:
+    def _rule_based_validation(
+        self,
+        extracted_fields: Dict[str, Any],
+        doc_type: DocumentType,
+        priority_fields: Optional[List[str]] = None,
+    ) -> Tuple[List[str], List[str]]:
         """
         Fast rule-based validation (no LLM needed)
         
@@ -262,7 +353,7 @@ class ValidatorAgent:
         warnings = []
         
         # Get priority fields
-        priority_fields = self.FIELD_PRIORITIES.get(
+        resolved_priority_fields = priority_fields or self.FIELD_PRIORITIES.get(
             doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
             []
         )
@@ -280,7 +371,7 @@ class ValidatorAgent:
             return False
         
         # Check required fields (top 3 priority fields)
-        for field in priority_fields[:3]:  # Check top 3 most important
+        for field in resolved_priority_fields[:3]:  # Check top 3 most important
             value = extracted_fields.get(field)
             if is_missing_value(value):
                 errors.append(f"Missing required field: {field}")
@@ -320,11 +411,38 @@ class ValidatorAgent:
                 "warnings": ["Validation response parsing failed, skipping LLM validation"],
                 "status": "valid"
             }
+
+    def _validate_against_json_schema(
+        self,
+        extracted_fields: Dict[str, Any],
+        json_schema: Dict[str, Any],
+    ) -> Tuple[List[str], List[str]]:
+        """Validate extracted fields against a resolved JSON Schema profile."""
+        if not json_schema:
+            return [], []
+
+        try:
+            from jsonschema import Draft7Validator
+        except Exception as e:
+            logger.warning(f"{self.name}: jsonschema unavailable: {e}")
+            return [], ["JSON Schema validation skipped: jsonschema package unavailable"]
+
+        validator = Draft7Validator(json_schema)
+        errors = []
+        for error in sorted(validator.iter_errors(extracted_fields), key=str):
+            path = ".".join(str(part) for part in error.path) if list(error.path) else "root"
+            errors.append(f"Schema violation at {path}: {error.message}")
+
+        warnings = []
+        if not errors:
+            warnings.append("JSON Schema validation passed")
+        return errors, warnings
     
     def _validate_with_llm(
         self,
         extracted_fields: Dict[str, Any],
-        doc_type: DocumentType
+        doc_type: DocumentType,
+        custom_doc_type: Optional[str] = None,
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Use LLM to validate extracted fields with intelligent field mapping
@@ -336,46 +454,64 @@ class ValidatorAgent:
         Returns:
             Tuple of (validation result dict, llm response dict)
         """
-        # Get expected schema fields for this document type
-        from schemas.document_schemas import (
-            FinancialDocumentFields, ResumeFields, JobOfferFields,
-            MedicalRecordFields, IdDocumentFields, AcademicFields
+        # Resolve doc label (custom type from HITL gets priority)
+        doc_type_label = custom_doc_type or (
+            doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type)
         )
-        
-        schema_map = {
-            DocumentType.FINANCIAL_DOCUMENT: FinancialDocumentFields,
-            DocumentType.RESUME: ResumeFields,
-            DocumentType.JOB_OFFER: JobOfferFields,
-            DocumentType.MEDICAL_RECORD: MedicalRecordFields,
-            DocumentType.ID_DOCUMENT: IdDocumentFields,
-            DocumentType.ACADEMIC: AcademicFields,
-        }
-        
-        # Get schema fields for this doc type
-        schema_class = schema_map.get(doc_type)
-        if schema_class:
-            schema_dict = schema_class.schema()
-            schema_fields = list(schema_dict.get('properties', {}).keys())
-            schema_fields_str = ", ".join(schema_fields)
-        else:
-            schema_fields_str = "Standard document fields"
+
+        # Knowledge look-up profile (SQLite + FAISS + JSON schema)
+        profile = {}
+        if self.knowledge_lookup is not None:
+            profile = self.knowledge_lookup.get_validation_profile(
+                doc_type=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+                custom_doc_type=custom_doc_type,
+            )
+
+        schema_fields = profile.get("schema_fields", []) if isinstance(profile, dict) else []
+        schema_fields_str = ", ".join(schema_fields) if schema_fields else "Standard document fields"
         
         # Format extracted fields for prompt
         fields_json = json.dumps(extracted_fields, indent=2, default=str)
         
-        # Get priority fields for this document type
-        priority_fields = self.FIELD_PRIORITIES.get(
-            doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
-            ["title", "date"]
+        # Get priority fields (knowledge profile overrides static defaults)
+        priority_fields = self._resolve_priority_fields(
+            extracted_fields=extracted_fields,
+            doc_type_label=doc_type_label,
+            profile_required_fields=(profile.get("required_fields", []) if isinstance(profile, dict) else []),
+            raw_text=None,
         )
         priority_str = ", ".join(priority_fields)
+
+        # Optional semantic hits from FAISS retrieval for richer validator context
+        semantic_hits = profile.get("semantic_hits", []) if isinstance(profile, dict) else []
+        semantic_context_lines = []
+        for hit in semantic_hits[:3]:
+            metadata = hit.get("metadata", {}) if isinstance(hit, dict) else {}
+            semantic_context_lines.append(
+                f"- doc_type={metadata.get('doc_type', 'unknown')}, "
+                f"source={metadata.get('source', 'unknown')}, "
+                f"distance={hit.get('distance', 0):.4f}"
+            )
+        semantic_context = "\n".join(semantic_context_lines) if semantic_context_lines else "None"
+
+        json_schema_obj = profile.get("json_schema", {}) if isinstance(profile, dict) else {}
+        json_schema_str = json.dumps(json_schema_obj, ensure_ascii=False)[:3000] if json_schema_obj else "{}"
+        knowledge_notes = (profile.get("knowledge_notes", "") if isinstance(profile, dict) else "")[:1500]
         
         # Create enhanced prompt with schema information
         prompt = VALIDATOR_PROMPT.format(
-            doc_type=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+            doc_type=doc_type_label,
             schema_fields=schema_fields_str,
             priority_fields=priority_str,
             extracted_fields=fields_json
+        ) + (
+            "\n\nKNOWLEDGE LOOK-UP CONTEXT:" 
+            f"\nPROFILE_SOURCE: {profile.get('source', 'none') if isinstance(profile, dict) else 'none'}"
+            f"\nPROFILE_DOC_TYPE: {profile.get('doc_type', doc_type_label) if isinstance(profile, dict) else doc_type_label}"
+            f"\nKNOWLEDGE_NOTES: {knowledge_notes or 'None'}"
+            f"\nSEMANTIC_HITS:\n{semantic_context}"
+            f"\nJSON_SCHEMA: {json_schema_str}"
+            "\nApply this schema context while deciding is_valid/errors/warnings."
         )
         
         # Call LLM with Groq for ultra-fast intelligent validation
@@ -385,8 +521,8 @@ class ValidatorAgent:
             system_prompt="Document validator. Return ONLY valid JSON with is_valid, errors, warnings, status. No code, no explanations.",
             max_tokens=200,
             temperature=0.0,
-            groq_model="llama-3.3-70b-versatile",  # 70b follows JSON instructions reliably
-            groq_key=1  # Primary key (low token load: ~200 tok output)
+            groq_model=settings.GROQ_MODEL,
+            groq_key=2  # Secondary key (low token load)
         )
         response = llm_response["content"]
         
@@ -482,13 +618,48 @@ class ValidatorAgent:
         try:
             extracted_fields = state["extracted_fields"] or {}
             doc_type = state["doc_type"]
+            raw_text = state.get("raw_text", "")
+
+            # For custom doc types typed by human (not in enum), use UNKNOWN so that
+            # schema-based required-field checks don't fire false errors.
+            custom_doc_type = state.get("custom_doc_type")
+            effective_doc_type = (
+                DocumentType.UNKNOWN
+                if (doc_type == DocumentType.UNKNOWN and custom_doc_type)
+                else doc_type
+            )
+            knowledge_profile = {}
+            if self.knowledge_lookup is not None:
+                knowledge_profile = self.knowledge_lookup.get_validation_profile(
+                    doc_type=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+                    custom_doc_type=custom_doc_type,
+                )
 
             # Normalize: alias remapping + type coercion before any validation
             extracted_fields = self._normalize_extracted_fields(extracted_fields)
             state["extracted_fields"] = extracted_fields
 
+            resolved_priority_fields = self._resolve_priority_fields(
+                extracted_fields=extracted_fields,
+                doc_type_label=doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+                profile_required_fields=(knowledge_profile.get("required_fields", []) if isinstance(knowledge_profile, dict) else []),
+                raw_text=raw_text,
+            )
+
+            schema_errors, schema_warnings = self._validate_against_json_schema(
+                extracted_fields,
+                knowledge_profile.get("json_schema", {}) if isinstance(knowledge_profile, dict) else {},
+            )
+
             # Quick pre-check: Rule-based validation (non-blocking, just for warnings)
-            rule_errors, rule_warnings = self._rule_based_validation(extracted_fields, doc_type)
+            # Use effective_doc_type so custom-type runs don't check for wrong required fields
+            rule_errors, rule_warnings = self._rule_based_validation(
+                extracted_fields,
+                effective_doc_type,
+                priority_fields=resolved_priority_fields,
+            )
+            rule_errors = schema_errors + rule_errors
+            rule_warnings = schema_warnings + rule_warnings
             
             logger.info(f"{self.name}: Rule-based pre-check found {len(rule_errors)} potential issues, {len(rule_warnings)} warnings")
             
@@ -508,13 +679,15 @@ class ValidatorAgent:
 
             elif not rule_errors and extracted_fields and all(
                 self._field_has_value(extracted_fields.get(f))
-                for f in self.FIELD_PRIORITIES.get(
-                    doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type), []
-                )
+                for f in resolved_priority_fields
             ):
                 # Fast-path: all priority fields filled + no rule errors — skip LLM (saves ~2s)
                 logger.info(f"{self.name}: Fast-path validation — all priority fields filled, no errors")
-                accuracy, missing_fields = self._compute_accuracy(extracted_fields, doc_type)
+                accuracy, missing_fields = self._compute_accuracy(
+                    extracted_fields,
+                    doc_type,
+                    custom_doc_type=custom_doc_type,
+                )
                 is_valid = accuracy >= self.ACCURACY_THRESHOLD
                 status = ValidationStatus.VALID if is_valid else ValidationStatus.INVALID
                 needs_repair = not is_valid
@@ -523,13 +696,19 @@ class ValidatorAgent:
                     if needs_repair else []
                 )
                 warnings = [f"Pre-check: {w}" for w in rule_warnings]
+                if isinstance(knowledge_profile, dict) and knowledge_profile.get("source"):
+                    warnings.append(f"Knowledge source: {knowledge_profile.get('source')}")
                 state["current_accuracy"] = accuracy
                 state["missing_schema_fields"] = missing_fields
 
             else:
                 # ALWAYS use LLM for intelligent validation (primary validator)
                 logger.info(f"{self.name}: Using LLM for intelligent semantic validation with field mapping")
-                validation_response, llm_response = self._validate_with_llm(extracted_fields, doc_type)
+                validation_response, llm_response = self._validate_with_llm(
+                    extracted_fields,
+                    doc_type,
+                    custom_doc_type=custom_doc_type,
+                )
                 
                 is_valid = validation_response.get("is_valid", False)
                 errors = validation_response.get("errors", [])
@@ -537,6 +716,8 @@ class ValidatorAgent:
                 # Combine LLM warnings with rule-based warnings
                 llm_warnings = validation_response.get("warnings", [])
                 warnings = llm_warnings + [f"Pre-check: {w}" for w in rule_warnings]
+                if isinstance(knowledge_profile, dict) and knowledge_profile.get("source"):
+                    warnings.append(f"Knowledge source: {knowledge_profile.get('source')}")
                 
                 # Extractor now uses schema directly, so no field remapping needed here.
                 # Validator's role is purely validation (is_valid, errors, warnings)
@@ -548,7 +729,11 @@ class ValidatorAgent:
                 needs_repair = not is_valid
 
                 # ── Accuracy gate ────────────────────────────────────────────────
-                accuracy, missing_fields = self._compute_accuracy(extracted_fields, doc_type)
+                accuracy, missing_fields = self._compute_accuracy(
+                    extracted_fields,
+                    doc_type,
+                    custom_doc_type=custom_doc_type,
+                )
                 logger.info(
                     f"{self.name}: Schema accuracy = {accuracy:.0%} "
                     f"({len(missing_fields)} missing fields)"
@@ -603,7 +788,11 @@ class ValidatorAgent:
             # Persist live accuracy + missing field list so workflow router and
             # self-repair node can both read them without recomputing.
             if not is_post_max_repair:
-                _acc, _missing = self._compute_accuracy(extracted_fields, doc_type)
+                _acc, _missing = self._compute_accuracy(
+                    extracted_fields,
+                    doc_type,
+                    custom_doc_type=custom_doc_type,
+                )
             else:
                 _acc, _missing = state.get("current_accuracy", 1.0), []
             state["current_accuracy"] = _acc
@@ -615,7 +804,7 @@ class ValidatorAgent:
                 ResponsibleAILog(
                     agent_name=self.name,
                     input_data=str(extracted_fields),
-                    output_data=str(validation_result.dict()),
+                    output_data=str(validation_result.model_dump()),
                     timestamp=datetime.utcnow(),
                     latency_ms=latency * 1000,
                     llm_model_used=llm_response.get("model", "unknown"),
@@ -625,7 +814,11 @@ class ValidatorAgent:
                     system_prompt=llm_response.get("system_prompt", ""),
                     user_prompt=llm_response.get("user_prompt", ""),
                     context_data={
-                        "doc_type": doc_type.value,
+                        "doc_type": doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type),
+                        "custom_doc_type": custom_doc_type,
+                        "knowledge_source": knowledge_profile.get("source") if isinstance(knowledge_profile, dict) else None,
+                        "knowledge_requested_doc_type": custom_doc_type or (doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type)),
+                        "knowledge_resolved_doc_type": knowledge_profile.get("doc_type") if isinstance(knowledge_profile, dict) else None,
                         "field_count": len(extracted_fields),
                         "is_valid": is_valid
                     },

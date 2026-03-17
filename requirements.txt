@@ -67,6 +67,7 @@ httpx
 python-magic-bin  # Windows file type detection
 tiktoken  # Token counting
 pandas
+jsonschema
 # openpyxl  # Moved to Document Loading section
 
 # Frontend

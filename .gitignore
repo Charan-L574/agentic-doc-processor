@@ -39,6 +39,8 @@ ENV/
 # Reports and Logs
 logs/*
 !logs/.gitkeep
+reports/*.json
+reports/*.csv
 
 # FAISS Index
 faiss_index/*
@@ -50,6 +52,9 @@ models/*.bin
 models/.cache/
 
 # Data
+data/cache/
+data/faiss_indexes/
+data/*.db
 data/samples/*
 data/uploads/*
 !data/uploads/.gitkeep
@@ -75,6 +80,10 @@ Thumbs.db
 
 # Testing
 .pytest_cache/
+.pytest_latest.txt
 .coverage
 htmlcov/
 *.cover
+
+# Local media
+*.mp4

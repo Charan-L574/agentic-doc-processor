@@ -21,8 +21,9 @@ from schemas.document_schemas import (
     IdDocumentFields,
     AcademicFields,
 )
-from utils.llm_client import llm_client, LLMProvider
+from utils.llm_client import llm_client
 from utils.logger import logger
+from utils.config import settings
 from prompts import EXTRACTOR_PROMPT, EXTRACTOR_SYSTEM_PROMPT
 
 
@@ -201,6 +202,24 @@ Output: {
   ],
   "honors": ["Magna Cum Laude", "Dean's List (4 semesters)"]
 }
+
+EXAMPLE - Academic Document (Textbook):
+Input: "TEXTBOOK | Introduction to Machine Learning (2nd Edition)
+Authors: Ethem Alpaydin
+Publisher: MIT Press
+ISBN: 978-0262043793
+Publication Year: 2020
+Course: CS-540
+Institution: University Department Library"
+Output: {
+    "document_type": "Textbook",
+    "title": "Introduction to Machine Learning",
+    "author": "Ethem Alpaydin",
+    "isbn": "978-0262043793",
+    "publication_year": 2020,
+    "institution_name": "University Department Library",
+    "degree_program": "CS-540"
+}
 """
     }
 
@@ -323,7 +342,8 @@ Output: {
         self,
         chunk: str,
         doc_type: DocumentType,
-        force_provider=None
+        force_provider=None,
+        effective_label: Optional[str] = None,
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Extract fields from a single text chunk
@@ -331,15 +351,21 @@ Output: {
         Args:
             chunk: Text chunk
             doc_type: Document type
+            effective_label: Override label for LLM prompt (custom doc types typed by human)
 
         Returns:
             Tuple of (extracted fields dict, llm response dict)
         """
-        # Get few-shot example for this document type
+        # Resolve the label used in the prompt:
+        # - custom human-typed type (effective_label) takes priority
+        # - otherwise use the enum value (e.g. "resume", "financial_document")
+        prompt_label = effective_label or doc_type.value
+
+        # Few-shot examples only exist for known enum types
         few_shot_examples = self.FEW_SHOT_EXAMPLES.get(doc_type, "")
 
         prompt = EXTRACTOR_PROMPT.format(
-            doc_type=doc_type.value,
+            doc_type=prompt_label,
             few_shot_examples=few_shot_examples,
             document_text=chunk
         )
@@ -348,10 +374,10 @@ Output: {
             prompt=prompt,
             system_prompt=EXTRACTOR_SYSTEM_PROMPT,
             temperature=0.0,
-            max_tokens=1500,
+            max_tokens=500 if settings.BEDROCK_ONLY_MODE else 1200,
             force_provider=force_provider,
-            groq_model="llama-3.3-70b-versatile",  # 70b for best extraction quality
-            groq_key=2  # Secondary key (heavy: ~1500 tok output)
+            groq_model="llama-3.3-70b-versatile",
+            groq_key=3  # Tertiary key for heavy extraction load
         )
         
         # Parse JSON response using json-repair
@@ -393,7 +419,14 @@ Output: {
                 if value is not None:
                     if isinstance(value, list):
                         # Extend lists
-                        merged.setdefault(key, []).extend(value)
+                        # Extend lists only when existing value is list-like; otherwise replace.
+                        existing = merged.get(key)
+                        if isinstance(existing, list):
+                            existing.extend(value)
+                        elif existing is None:
+                            merged[key] = list(value)
+                        else:
+                            merged[key] = list(value)
                     else:
                         # Overwrite with non-null values
                         merged[key] = value
@@ -416,6 +449,20 @@ Output: {
         try:
             doc_type = state["doc_type"]
             raw_text = state["raw_text"]
+
+            # When the human typed a custom doc type (not in the enum), use that
+            # label in the LLM prompt so extraction targets the right document kind.
+            custom_doc_type = state.get("custom_doc_type")  # e.g. "bank_statement"
+            effective_label = (
+                custom_doc_type
+                if (doc_type == DocumentType.UNKNOWN and custom_doc_type)
+                else None
+            )
+            if effective_label:
+                logger.info(
+                    f"{self.name}: Custom doc type '{effective_label}' — "
+                    "using open-ended extraction"
+                )
             
             text_excerpt = raw_text[:500]
             
@@ -434,7 +481,8 @@ Output: {
                 logger.debug(f"Extracting from chunk {i}/{len(chunks)}")
                 extracted, response = self._extract_from_chunk(
                     chunk=chunk,
-                    doc_type=doc_type
+                    doc_type=doc_type,
+                    effective_label=effective_label,
                 )
                 chunk_results.append(extracted)
                 llm_responses.append(response)
@@ -496,7 +544,7 @@ Output: {
                     system_prompt=EXTRACTOR_SYSTEM_PROMPT,
                     user_prompt=last_response.get("user_prompt", ""),
                     context_data={
-                        "doc_type": doc_type.value,
+                        "doc_type": effective_label or doc_type.value,
                         "chunk_count": len(chunks),
                         "text_length": len(raw_text)
                     },
@@ -509,7 +557,7 @@ Output: {
             
             logger.info(
                 f"{self.name}: Extraction complete",
-                doc_type=doc_type.value,
+                doc_type=effective_label or doc_type.value,
                 fields_count=len(merged_fields),
                 chunks=len(chunks),
                 latency_ms=latency * 1000

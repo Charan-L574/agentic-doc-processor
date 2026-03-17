@@ -79,6 +79,28 @@ def check_api_health():
         return False
 
 
+def get_monitoring_health():
+    """Fetch monitoring health details from API."""
+    try:
+        response = requests.get(f"{API_BASE_URL}/monitoring/health", timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return {"error": f"API Error: {response.status_code}", "details": response.text}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def trigger_langsmith_monitoring_test():
+    """Create a manual monitoring trace in LangSmith via API."""
+    try:
+        response = requests.post(f"{API_BASE_URL}/monitoring/langsmith/test", timeout=20)
+        if response.status_code == 200:
+            return response.json()
+        return {"error": f"API Error: {response.status_code}", "details": response.text}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def process_document(file_path: str):
     """Process document via API"""
     try:
@@ -104,6 +126,55 @@ def get_workflow_diagram():
         return None
     except:
         return None
+
+
+# ─── HITL Agentic API helpers (LangGraph interrupt-based) ───────────────────
+
+def start_document_processing(file_path: str) -> dict:
+    """
+    POST /process/start — starts the HITLWorkflow graph.
+    Runs until the classify interrupt fires and returns
+    {thread_id, status:"interrupted", interrupt_data}.
+    """
+    try:
+        thread_id = f"hitl_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        response = requests.post(
+            f"{API_BASE_URL}/process/start",
+            json={"file_path": file_path, "thread_id": thread_id},
+            timeout=120,
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {"error": f"API Error {response.status_code}", "details": response.text}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def resume_document_processing(
+    thread_id: str,
+    resolution: str,
+    doc_type_override: str = None,
+    corrections: dict = None,
+) -> dict:
+    """
+    POST /thread/{thread_id}/resume — sends human decision to the suspended graph.
+    Returns {thread_id, status:"interrupted"|"complete", interrupt_data|result}.
+    """
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/thread/{thread_id}/resume",
+            json={
+                "resolution":        resolution,
+                "doc_type_override": doc_type_override,
+                "corrections":       corrections,
+            },
+            timeout=300,
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {"error": f"API Error {response.status_code}", "details": response.text}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def display_classification_results(result):
@@ -151,7 +222,9 @@ def display_extraction_results(fields, doc_type, confidence=0.0, extraction_accu
         st.warning("No fields extracted")
         return
 
-    # Schema field list for this doc type
+    # Schema field list for this doc type. For custom HITL-provided document
+    # types, there is no predefined schema in _SCHEMA_FIELD_COUNTS, so fall
+    # back to the backend-computed extraction_accuracy instead of showing 0.0%.
     schema_field_list = _SCHEMA_FIELD_COUNTS.get(str(doc_type).replace("DocumentType.", "").lower(), [])
     schema_count = len(schema_field_list)
 
@@ -164,16 +237,23 @@ def display_extraction_results(fields, doc_type, confidence=0.0, extraction_accu
         if fields.get(f) not in (None, "", [], {}, "null", "N/A", "n/a")
     )
 
-    # Mirror reporter_agent denominator logic
-    if schema_filled < 10:
-        denominator = schema_filled + 1
+    # Mirror reporter_agent denominator logic for known schema types only.
+    if schema_count > 0:
+        if schema_filled < 10:
+            denominator = schema_filled + 1
+        else:
+            denominator = schema_count if schema_count > 0 else schema_filled + 1
+        accuracy_pct = min(100.0, schema_filled / denominator * 100) if denominator > 0 else 0.0
+        accuracy_label = "Schema Accuracy"
+        accuracy_help = "Filled schema fields vs schema total"
     else:
-        denominator = schema_count if schema_count > 0 else schema_filled + 1
-    accuracy_pct = min(100.0, schema_filled / denominator * 100) if denominator > 0 else 0.0
+        accuracy_pct = max(0.0, float(extraction_accuracy or 0.0) * 100)
+        accuracy_label = "Extraction Accuracy"
+        accuracy_help = "Backend-computed field coverage for custom document types without a predefined schema"
 
     col1, = st.columns(1)
     with col1:
-        st.metric("Schema Accuracy", f"{accuracy_pct:.1f}%", help="Filled schema fields vs schema total")
+        st.metric(accuracy_label, f"{accuracy_pct:.1f}%", help=accuracy_help)
 
     # Determine overall validity: confidence > 90% AND extraction accuracy > 85%
     # confidence and extraction_accuracy are on 0–1 scale from the API
@@ -295,24 +375,37 @@ def display_redaction_results(redaction):
 def display_metrics(metrics, result=None):
     """Display performance metrics"""
     st.subheader("📊 Performance Metrics")
-    
+
+    _r = result or {}
+    _trace = _r.get("trace_log", []) or []
+
+    # Total processing time = sum of all agent latencies from trace_log (covers all
+    # HITL stages: classify + extract + validate + redact + report).
+    # Falls back to result.processing_time or metrics.total_processing_time when
+    # no trace is available (e.g. legacy /process endpoint results).
+    if _trace:
+        total_processing_time = sum((log.get("latency_ms", 0) or 0) for log in _trace) / 1000.0
+    else:
+        total_processing_time = (
+            _r.get("processing_time", 0)
+            or metrics.get("total_processing_time", 0)
+            or 0
+        )
+
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         accuracy = (metrics.get("extraction_accuracy", 0) or 0) * 100
         st.metric("Extraction Accuracy", f"{math.ceil(accuracy)}%")
-    
+
     with col2:
-        # Use top-level result.processing_time (wall-clock) as primary — same source as detailed tab
-        _r = result or {}
-        processing_time = _r.get("processing_time", 0) or metrics.get("total_processing_time", 0) or 0
-        st.metric("Processing Time", f"{processing_time:.2f}s")
-    
+        st.metric("Processing Time", f"{total_processing_time:.2f}s")
+
     with col3:
         error_count = metrics.get("error_count", 0)
         st.metric("Errors", error_count)
-    
+
     with col4:
         success = metrics.get("workflow_success", False)
         st.metric("Workflow Status", "✅ Success" if success else "❌ Failed")
@@ -334,21 +427,32 @@ def display_metrics(metrics, result=None):
                     f"Consider adding them to the schema!"
                 )
     
-    # Agent latencies
-    agent_latencies = metrics.get("agent_latencies", {})
-    
+    # Agent latencies — always rebuild from trace_log so all stages (classify/extract/
+    # validate/redact/report) are included even in the staged HITL flow where
+    # metrics["agent_latencies"] only captures the last finalize stage.
+    agent_latencies = {}
+    trace_log = (result or {}).get("trace_log", []) if result else []
+    if trace_log:
+        for log in trace_log:
+            agent_name = log.get("agent_name", "Unknown")
+            latency_ms = log.get("latency_ms", 0) or 0
+            latency_s = latency_ms / 1000.0
+            agent_latencies[agent_name] = agent_latencies.get(agent_name, 0) + latency_s
+    # Fall back to metrics dict if no trace_log present (old /process endpoint path)
+    if not agent_latencies:
+        agent_latencies = dict(metrics.get("agent_latencies") or {})
+
     if agent_latencies:
         st.markdown("#### Agent Processing Times")
-        
-        # Create bar chart
+
         agents = list(agent_latencies.keys())
         times = list(agent_latencies.values())
-        
+
         fig = go.Figure(data=[
             go.Bar(x=agents, y=times, marker_color='lightblue', text=times,
                    texttemplate='%{text:.2f}s', textposition='outside')
         ])
-        
+
         fig.update_layout(
             title="Agent Latency Breakdown",
             xaxis_title="Agent",
@@ -356,8 +460,32 @@ def display_metrics(metrics, result=None):
             height=400,
             showlegend=False
         )
-        
+
         st.plotly_chart(fig, width="stretch")
+
+
+def display_knowledge_lookup_info(result):
+    """Display explicit knowledge look-up metadata from API response."""
+    st.subheader("🧠 Knowledge Lookup")
+
+    classification_path = result.get("classification_path") or "unknown"
+    predicted_doc_type = result.get("classification_predicted_doc_type") or "unknown"
+    requested_doc_type = result.get("knowledge_requested_doc_type") or "unknown"
+    resolved_doc_type = result.get("knowledge_resolved_doc_type") or "unknown"
+
+    path_label_map = {
+        "normal_llm_classification": "Normal LLM Classification",
+        "hitl_approved_classification": "HITL Approved Classification",
+        "hitl_corrected_classification": "HITL Corrected Classification",
+        "hitl_custom_classification": "HITL Custom Classification",
+    }
+    path_label = path_label_map.get(classification_path, classification_path)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Classification Path", path_label)
+    with col2:
+        st.metric("Predicted → Requested", f"{predicted_doc_type} → {requested_doc_type}")
     
 
 
@@ -864,7 +992,11 @@ def display_detailed_metrics(metrics, result):
         st.metric("PII Precision", "94.6%", help="System-level target: ≥ 90%")
     
     with col4:
-        processing_time = result.get("processing_time", 0) or metrics.get("total_processing_time", 0) or 0
+        _det_trace = result.get("trace_log", []) or []
+        if _det_trace:
+            processing_time = sum((log.get("latency_ms", 0) or 0) for log in _det_trace) / 1000.0
+        else:
+            processing_time = result.get("processing_time", 0) or metrics.get("total_processing_time", 0) or 0
         st.metric("Processing Time", f"{processing_time:.2f}s")
     
     st.markdown("---")
@@ -1067,6 +1199,29 @@ def main():
         else:
             st.error("❌ API Offline")
             st.info("Start API: `python -m api.main`")
+
+        st.markdown("---")
+        st.markdown("### 🔭 LangSmith")
+        st.caption("Observability controls")
+
+        col_ls1, col_ls2 = st.columns(2)
+        if col_ls1.button("Health", key="ls_health_btn"):
+            st.session_state["langsmith_health"] = get_monitoring_health()
+        if col_ls2.button("Trace Test", key="ls_test_btn"):
+            st.session_state["langsmith_test"] = trigger_langsmith_monitoring_test()
+
+        if st.session_state.get("langsmith_health"):
+            with st.expander("LangSmith Health", expanded=False):
+                st.json(st.session_state["langsmith_health"])
+
+        if st.session_state.get("langsmith_test"):
+            result = st.session_state["langsmith_test"]
+            if result.get("ok"):
+                st.success(f"LangSmith trace created: {result.get('run_id')}")
+            else:
+                st.error("Failed to create LangSmith trace")
+            with st.expander("LangSmith Test Response", expanded=False):
+                st.json(result)
         
     
     # Main content
@@ -1190,204 +1345,324 @@ def main():
             except Exception as e:
                 st.warning(f"Could not preview file: {e}")
         
-        # Process button
-        if st.button("🚀 Process Document", disabled=not file_path, type="primary"):
-            if not check_api_health():
-                st.error("❌ API is not running. Please start the FastAPI server first.")
-                st.code("python -m api.main", language="bash")
-            else:
-                # Processing with real-time updates
-                st.markdown("---")
-                st.markdown("### 🔄 Processing Pipeline")
-                
-                # Create placeholders for each agent
-                status_container = st.container()
-                
-                with status_container:
-                    st.info("🚀 Starting document processing pipeline...")
-                    progress_bar = st.progress(0)
+        # ── HITL Session State Initialization ───────────────────────────────
+        for _k, _v in {
+            "hitl_stage":          "idle",
+            "hitl_thread_id":      None,
+            "hitl_interrupt_data": None,
+            "hitl_final_result":   None,
+            "hitl_file_path":      None,
+        }.items():
+            if _k not in st.session_state:
+                st.session_state[_k] = _v
 
-                    # One placeholder per agent step
-                    s1 = st.empty()
-                    s2 = st.empty()
-                    s3 = st.empty()
-                    s4 = st.empty()
-
-                    # ── Step 1 running (only step shown before blocking API call)
-                    s1.info("🔄 Step 1/4: Classifying document...")
-                    progress_bar.progress(10)
-
-                    # ── Blocking API call
-                    result = process_document(str(file_path))
-                    st.session_state['last_result'] = result
-                    st.session_state['last_file_path'] = str(file_path)
-
-                    if "error" in result:
-                        progress_bar.empty()
-                        s1.empty(); s2.empty(); s3.empty(); s4.empty()
-                        st.markdown(f'<div class="error-box">❌ <b>Error:</b> {result["error"]}</div>',
-                                    unsafe_allow_html=True)
-                        if "details" in result:
-                            with st.expander("📋 Error Details", expanded=True):
-                                st.code(result["details"])
+        # ── Stage: idle — show "Start Processing" button ─────────────────────
+        if st.session_state.hitl_stage == "idle":
+            if st.button("🚀 Process Document", disabled=not file_path, type="primary"):
+                if not check_api_health():
+                    st.error("❌ API is not running. Please start the FastAPI server first.")
+                    st.code("python -m api.main", language="bash")
+                else:
+                    with st.spinner("🔄 Starting agentic pipeline — classifying document…"):
+                        resp = start_document_processing(str(file_path))
+                    if "error" in resp:
+                        st.error(f"Processing failed: {resp['error']}")
+                        if "details" in resp:
+                            with st.expander("Details"):
+                                st.code(resp["details"])
+                    elif resp.get("status") == "interrupted":
+                        st.session_state.hitl_thread_id      = resp["thread_id"]
+                        st.session_state.hitl_interrupt_data = resp["interrupt_data"]
+                        st.session_state.hitl_file_path      = str(file_path)
+                        st.session_state.hitl_stage          = "hitl1"
+                        st.rerun()
                     else:
-                        # ── Step 1 done
-                        doc_type = result.get('doc_type', 'unknown').upper()
-                        conf = result.get('confidence', 0) * 100
-                        s1.success(f"✅ Step 1/4: Classification — **{doc_type}** ({conf:.1f}% confidence)")
-                        progress_bar.progress(25)
-                        time.sleep(0.3)
+                        # Graph completed without HITL (shouldn't happen in normal flow)
+                        st.session_state.hitl_final_result = resp.get("result", {})
+                        st.session_state["last_result"]    = resp.get("result", {})
+                        st.session_state["last_file_path"] = str(file_path)
+                        st.session_state.hitl_stage        = "complete"
+                        st.rerun()
 
-                        # ── Step 2
-                        s2.info("🔄 Step 2/4: Extracting fields...")
-                        time.sleep(0.3)
-                        field_count = len(result["extracted_fields"]) if isinstance(result.get("extracted_fields"), dict) else 0
-                        if field_count:
-                            s2.success(f"✅ Step 2/4: Extraction — **{field_count} fields** extracted")
-                        else:
-                            s2.warning("⚠️ Step 2/4: Extraction — no fields extracted")
-                        progress_bar.progress(50)
-                        time.sleep(0.3)
+        # ── Stage: hitl1 — confirm/override classification ───────────────────
+        elif st.session_state.hitl_stage == "hitl1":
+            intr = st.session_state.hitl_interrupt_data or {}
+            st.markdown("---")
+            st.markdown("### 🤖 Step 1 Complete — Verify AI Classification")
 
-                        # ── Step 3
-                        s3.info("🔄 Step 3/4: Validating fields...")
-                        time.sleep(0.3)
-                        if "validation" in result:
-                            v = result["validation"]
-                            if v.get("is_valid", False):
-                                s3.success("✅ Step 3/4: Validation — all fields valid")
-                            else:
-                                errs = [e for e in v.get("errors", []) if "accuracy" not in e.lower()]
-                                if errs:
-                                    s3.warning(f"⚠️ Step 3/4: Validation — {len(errs)} issue(s) found")
-                                else:
-                                    s3.success("✅ Step 3/4: Validation — complete")
-                        progress_bar.progress(75)
-                        time.sleep(0.3)
+            ai_doc_type = intr.get("doc_type", "unknown")
+            conf_pct    = intr.get("confidence", 0) * 100
+            col1, col2  = st.columns(2)
+            col1.metric("AI Predicted Type", ai_doc_type.upper().replace("_", " "))
+            col2.metric("Confidence", f"{conf_pct:.1f}%")
 
-                        # ── Step 4
-                        s4.info("🔄 Step 4/4: Redacting PII...")
-                        time.sleep(0.3)
-                        pii_count = result.get("redaction", {}).get("pii_count", 0) if result else 0
-                        s4.success(f"✅ Step 4/4: Redaction — **{pii_count} PII** instance(s) masked")
-                        progress_bar.progress(100)
-                        time.sleep(1)
-                        progress_bar.empty()
-        
-        # Display results if they exist in session state (persists across tab navigation)
-        if 'last_result' in st.session_state:
-            result = st.session_state['last_result']
-            
-            # Debug: Show raw result structure
+            reasoning = intr.get("reasoning", "")
+            if reasoning:
+                with st.expander("📝 Classification Reasoning", expanded=True):
+                    st.write(reasoning)
+
+            st.info(intr.get("message", "Please confirm the document type."))
+
+            st.markdown("#### 👤 Human Review — Confirm or Override")
+            _doc_types = [
+                "financial_document", "resume", "job_offer",
+                "medical_record", "id_document", "academic", "unknown",
+            ]
+            _default_idx = _doc_types.index(ai_doc_type) if ai_doc_type in _doc_types else _doc_types.index("unknown")
+            if ai_doc_type not in _doc_types:
+                st.warning(
+                    f"AI predicted an unsupported type ('{ai_doc_type}'). "
+                    f"Please select the correct known type, or keep UNKNOWN and enter a custom type."
+                )
+            selected_type = st.radio(
+                "Select the correct document type:",
+                options=_doc_types,
+                index=_default_idx,
+                format_func=lambda x: x.upper().replace("_", " "),
+                key="hitl1_radio",
+            )
+
+            # Custom type text box — only shown when "unknown" is selected
+            custom_type = None
+            if selected_type == "unknown":
+                st.info(
+                    f"💡 **Unknown selected** — the pipeline will proceed with the "
+                    f"AI-classified type: **{ai_doc_type.upper().replace('_', ' ')}**. "
+                    f"Use the custom type box below if the correct type is not in the list."
+                )
+                custom_type_input = st.text_input(
+                    "Custom document type (optional):",
+                    placeholder="e.g. bank_statement, legal_contract, tax_return …",
+                    key="hitl1_custom_type",
+                ).strip().lower().replace(" ", "_")
+                if custom_type_input:
+                    custom_type = custom_type_input
+
+            col_a, col_b = st.columns([3, 1])
+            confirm_clicked = col_a.button("✅ Confirm & Continue", type="primary", key="hitl1_confirm")
+            if col_b.button("🔄 Start Over", key="hitl1_reset"):
+                st.session_state.hitl_stage = "idle"
+                st.rerun()
+
+            if confirm_clicked:
+                # Resolve final doc type:
+                #   1. Custom text entry takes highest priority
+                #   2. "unknown" selected → fall back to the AI-predicted type
+                #   3. Anything else → use what the human selected
+                if custom_type:
+                    final_type = custom_type
+                elif selected_type == "unknown":
+                    final_type = ai_doc_type   # keep LLM prediction
+                else:
+                    final_type = selected_type
+
+                override = final_type if final_type != ai_doc_type else None
+                resolution = "corrected" if override else "approved"
+
+                with st.spinner("🔄 Resuming pipeline — extracting and validating fields…"):
+                    resp = resume_document_processing(
+                        st.session_state.hitl_thread_id,
+                        resolution,
+                        doc_type_override=final_type if override else None,
+                    )
+
+                if "error" in resp:
+                    st.error(f"Pipeline resume failed: {resp['error']}")
+                    if "details" in resp:
+                        with st.expander("Details"):
+                            st.code(resp["details"])
+                elif resp.get("status") == "interrupted":
+                    # Extract checkpoint — show HITL2
+                    st.session_state.hitl_interrupt_data = resp["interrupt_data"]
+                    st.session_state.hitl_stage          = "hitl2"
+                    st.rerun()
+                else:
+                    # Completed without extraction HITL
+                    st.session_state.hitl_final_result = resp.get("result", {})
+                    st.session_state["last_result"]    = resp.get("result", {})
+                    st.session_state["last_file_path"] = st.session_state.hitl_file_path
+                    st.session_state.hitl_stage        = "complete"
+                    st.rerun()
+
+        # ── Stage: hitl2 — review extraction / correct fields ────────────────
+        elif st.session_state.hitl_stage == "hitl2":
+            intr = st.session_state.hitl_interrupt_data or {}
+
+            st.markdown("---")
+            st.markdown("### ⚠️ Step 2 — Human Review Required (Validation Issues)")
+
+            acc_pct      = intr.get("accuracy", 0.0) * 100
+            doc_type_str = intr.get("doc_type", "unknown")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Extraction Accuracy", f"{acc_pct:.1f}%", help="Target ≥ 80%")
+            col2.metric("Validation Status", "❌ Issues Found")
+            col3.metric("Document Type", doc_type_str.upper().replace("_", " "))
+
+            missing = intr.get("missing_fields", [])
+            errors  = intr.get("validation_errors", [])
+            if missing:
+                st.warning(f"⚠️ Missing required fields: `{', '.join(missing)}`")
+            if errors:
+                with st.expander("🔴 Validation errors", expanded=True):
+                    for err in errors:
+                        st.error(err)
+
+            if intr.get("message"):
+                st.info(intr["message"])
+
+            st.markdown("#### ✏️ Review and Edit Extracted Fields")
+            st.caption("You can edit any value before continuing.")
+
+            raw_fields = intr.get("extracted_fields", {})
+            flat_fields = {
+                k: json.dumps(v) if isinstance(v, (dict, list)) else (str(v) if v is not None else "")
+                for k, v in raw_fields.items()
+            }
+            edited_df = st.data_editor(
+                pd.DataFrame({"Field": list(flat_fields.keys()), "Value": list(flat_fields.values())}),
+                use_container_width=True,
+                num_rows="fixed",
+                hide_index=True,
+                key="hitl2_editor",
+            )
+
+            st.markdown("---")
+            col_approve, col_correct, col_reject = st.columns(3)
+            approve_clicked = col_approve.button("✅ Approve & Continue", type="primary", key="hitl2_approve")
+            correct_clicked = col_correct.button("✏️ Submit Corrections", key="hitl2_correct")
+            reject_clicked  = col_reject.button("❌ Reject Document",     key="hitl2_reject")
+
+            def _build_corrected_fields(df) -> dict:
+                corrected = {}
+                for _, row in df.iterrows():
+                    k, v = row["Field"], row["Value"]
+                    try:
+                        corrected[k] = json.loads(v)
+                    except Exception:
+                        corrected[k] = v
+                return corrected
+
+            if reject_clicked:
+                with st.spinner("🔄 Sending rejection to pipeline…"):
+                    resume_document_processing(
+                        st.session_state.hitl_thread_id, "rejected"
+                    )
+                st.error("🚫 Document rejected. Starting over.")
+                st.session_state.hitl_stage = "idle"
+                st.rerun()
+
+            if approve_clicked or correct_clicked:
+                corrections_to_send = (
+                    _build_corrected_fields(edited_df) if correct_clicked else None
+                )
+                resolution = "corrected" if correct_clicked else "approved"
+
+                with st.spinner("🔄 Resuming pipeline — redacting PII and generating report…"):
+                    resp = resume_document_processing(
+                        st.session_state.hitl_thread_id,
+                        resolution,
+                        corrections=corrections_to_send,
+                    )
+
+                if "error" in resp:
+                    st.error(f"Pipeline resume failed: {resp['error']}")
+                else:
+                    st.session_state.hitl_final_result = resp.get("result", {})
+                    st.session_state["last_result"]    = resp.get("result", {})
+                    st.session_state["last_file_path"] = st.session_state.hitl_file_path
+                    st.session_state.hitl_stage        = "complete"
+                    st.rerun()
+
+        # ── Stage: complete — display final results ───────────────────────────
+        if st.session_state.hitl_stage == "complete":
+            result = st.session_state.get("hitl_final_result") or st.session_state.get("last_result")
+
+            col_hdr, col_reset = st.columns([6, 1])
+            st.markdown("---")
+            with col_reset:
+                if st.button("🔄 Process Another", key="complete_reset"):
+                    for _k in ["hitl_thread_id", "hitl_interrupt_data", "hitl_final_result", "hitl_file_path"]:
+                        st.session_state[_k] = None
+                    st.session_state.hitl_stage = "idle"
+                    st.rerun()
+
             with st.expander("🔍 Debug: View Raw API Response", expanded=False):
                 st.json(result)
-            
-            # Add clear results button
-            col1, col2 = st.columns([6, 1])
-            with col2:
-                if st.button("🗑️ Clear Results"):
-                    if 'last_result' in st.session_state:
-                        del st.session_state['last_result']
-                    if 'last_file_path' in st.session_state:
-                        del st.session_state['last_file_path']
-                    st.rerun()
-            
-            st.markdown("---")
-            
-            # Check for errors first
-            if "error" in result:
-                st.markdown(f'<div class="error-box">❌ <b>Error:</b> {result["error"]}</div>', 
-                           unsafe_allow_html=True)
-                if "details" in result:
-                    with st.expander("📋 Error Details", expanded=True):
-                        st.code(result["details"])
-            else:
-                # Success banner and detailed results
+
+            if result and "error" not in result:
                 if result.get("success", False):
-                    st.markdown('<div class="success-box">🎉 <b>Document Processed Successfully!</b></div>', 
-                               unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="success-box">🎉 <b>Document Processed Successfully with Human Review!</b></div>',
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    st.markdown('<div class="error-box">⚠️ <b>Processing Completed with Issues</b></div>', 
-                               unsafe_allow_html=True)
-                
-                # Display file info if available
-                if 'last_file_path' in st.session_state:
-                    st.caption(f"📄 Processed file: `{st.session_state['last_file_path']}`")
-                
+                    st.markdown(
+                        '<div class="error-box">⚠️ <b>Processing Completed with Issues</b></div>',
+                        unsafe_allow_html=True,
+                    )
+
+                st.caption(f"📄 File: `{st.session_state.get('last_file_path', '')}`")
                 st.markdown("---")
-                
-                # Classification
-                if "doc_type" in result and result.get("doc_type"):
-                    classification_data = {
-                        "doc_type": result.get("doc_type"),
-                        "confidence": result.get("confidence", 0),
-                        "reasoning": result.get("reasoning", "")
-                    }
-                    display_classification_results(classification_data)
-                else:
-                    st.warning("⚠️ Classification data not available in result")
-                
-                # Extraction
-                if "extracted_fields" in result and result["extracted_fields"]:
+
+                if result.get("doc_type"):
+                    display_classification_results({
+                        "doc_type": result["doc_type"],
+                        "confidence": result.get("confidence", 1.0),
+                        "reasoning": result.get("reasoning", ""),
+                    })
+
+                if any(k in result for k in ["knowledge_lookup_used", "schema_source", "classification_path"]):
                     st.markdown("---")
-                    _conf = result.get("confidence") or 0.0
+                    display_knowledge_lookup_info(result)
+
+                if result.get("extracted_fields"):
+                    st.markdown("---")
                     _acc = (result.get("metrics") or {}).get("extraction_accuracy") or 0.0
                     display_extraction_results(
                         result["extracted_fields"],
                         result.get("doc_type", "unknown"),
-                        confidence=_conf,
+                        confidence=result.get("confidence", 1.0),
                         extraction_accuracy=_acc,
                     )
-                elif "extracted_fields" in result:
-                    st.markdown("---")
-                    st.subheader("🔍 Extracted Fields")
-                    st.warning("⚠️ Extraction completed but no fields were found. This may indicate the document format is not recognized or the content could not be parsed.")
-                
-                # Validation
-                if "validation" in result and result["validation"]:
+
+                if result.get("validation"):
                     st.markdown("---")
                     _val_acc = (result.get("metrics") or {}).get("extraction_accuracy") or 0.0
                     display_validation_results(result["validation"], extraction_accuracy=_val_acc)
-                
-                # Redaction
-                if "redaction" in result:
+
+                if result.get("redaction"):
                     st.markdown("---")
                     display_redaction_results(result["redaction"])
-                
-                # Metrics
-                if "metrics" in result:
+
+                if result.get("metrics"):
                     st.markdown("---")
                     display_metrics(result["metrics"], result=result)
-                
-                # Raw JSON
+
                 with st.expander("📄 View Raw JSON Response", expanded=False):
                     st.json(result)
-                
-                # Download results
+
                 st.markdown("---")
                 st.markdown("### 💾 Download Results")
-                
                 col1, col2 = st.columns(2)
                 with col1:
-                    json_str = json.dumps(result, indent=2)
                     st.download_button(
                         label="📥 Download JSON",
-                        data=json_str,
+                        data=json.dumps(result, indent=2),
                         file_name=f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                        mime="application/json"
+                        mime="application/json",
                     )
-                
                 with col2:
-                    if "extracted_fields" in result:
-                        df = pd.DataFrame([result["extracted_fields"]])
-                        csv = df.to_csv(index=False)
+                    if result.get("extracted_fields"):
+                        df_dl = pd.DataFrame([result["extracted_fields"]])
                         st.download_button(
                             label="📥 Download CSV",
-                            data=csv,
+                            data=df_dl.to_csv(index=False),
                             file_name=f"extracted_fields_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
+                            mime="text/csv",
                         )
-    
+            elif result and "error" in result:
+                st.error(f"❌ Error: {result['error']}")
+
     # Tab 2: Responsible AI Logs
     with tabs[1]:
         st.markdown("## 🔍 Responsible AI Logs")

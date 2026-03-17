@@ -401,7 +401,7 @@ class ReporterAgent:
                 "document": state["file_path"],
                 "doc_type": state["doc_type"].value if state.get("doc_type") else "unknown",
                 "timestamp": datetime.utcnow().isoformat(),
-                "metrics": metrics_report.dict(),
+                "metrics": metrics_report.model_dump(),
                 "classification": state.get("classification_result").model_dump() if state.get("classification_result") else None,
                 "extraction": {
                     "fields_count": len(state.get("extracted_fields", {})),

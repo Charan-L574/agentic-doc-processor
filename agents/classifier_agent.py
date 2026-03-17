@@ -8,6 +8,7 @@ from typing import Dict, Any
 from graph.state import DocumentState
 from schemas.document_schemas import DocumentType, ClassificationResult, ResponsibleAILog
 from utils.llm_client import llm_client
+from utils.config import settings
 from utils.logger import logger
 from prompts import CLASSIFIER_PROMPT, CLASSIFIER_SYSTEM_PROMPT
 
@@ -143,6 +144,11 @@ class ClassifierAgent:
             "certificate": DocumentType.ACADEMIC,
             "mark sheet": DocumentType.ACADEMIC,  # Indian
             "marksheet": DocumentType.ACADEMIC,
+            "textbook": DocumentType.ACADEMIC,
+            "course book": DocumentType.ACADEMIC,
+            "reference book": DocumentType.ACADEMIC,
+            "syllabus": DocumentType.ACADEMIC,
+            "lecture notes": DocumentType.ACADEMIC,
         }
         
         # Try exact match in mapping
@@ -220,7 +226,7 @@ class ClassifierAgent:
                 ResponsibleAILog(
                     agent_name=self.name,
                     input_data=text_excerpt[:500],
-                    output_data=str(classification_result.dict()),
+                    output_data=str(classification_result.model_dump()),
                     timestamp=datetime.utcnow(),
                     latency_ms=latency * 1000,
                     llm_model_used=response["model"],

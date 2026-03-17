@@ -37,6 +37,7 @@ class PIIType(str, Enum):
     NAME = "name"
     DATE_OF_BIRTH = "date_of_birth"
     MEDICAL_ID = "medical_id"
+    BANK_ACCOUNT = "bank_account"
     TAX_ID = "tax_id"  # Tax IDs (India PAN/GSTIN, US EIN, UK UTR, EU VAT, etc.)
     GENDER = "gender"  # Gender (Male/Female/Other) — personal demographic info
 

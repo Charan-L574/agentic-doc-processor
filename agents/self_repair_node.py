@@ -11,6 +11,7 @@ from json_repair import repair_json
 from graph.state import DocumentState
 from schemas.document_schemas import ValidationStatus, ResponsibleAILog
 from utils.llm_client import llm_client
+from utils.config import settings
 from utils.logger import logger
 from prompts import SELF_REPAIR_PROMPT, SELF_REPAIR_RE_EXTRACTION_PROMPT, SELF_REPAIR_SYSTEM_PROMPT
 
@@ -34,8 +35,8 @@ class SelfRepairNode:
         from utils.config import Env
         self.env = Env()
         self.max_attempts = int(self.env.get('workflow', 'max_repair_attempts', fallback=3))
-        self.llm_model = self.env.get('groq', 'model', fallback='llama-3.1-8b-instant')
-        self.llm_key = self.env.get('groq', 'api_key_b', fallback=None)
+        self.llm_model = 'llama-3.3-70b-versatile'
+        self.llm_key = 3
     
     def _parse_llm_response(self, content: str) -> Dict[str, Any]:
         """
@@ -175,7 +176,7 @@ class SelfRepairNode:
                 prompt=prompt,
                 system_prompt=SELF_REPAIR_SYSTEM_PROMPT,
                 temperature=0.0,
-                max_tokens=1200,
+                max_tokens=500 if settings.BEDROCK_ONLY_MODE else 1200,
                 groq_model=self.llm_model,
                 groq_key=self.llm_key
             )

@@ -2,12 +2,16 @@
 LLM Client with configured fallback order and Groq key support.
 
 Fallback chain (configured per user request):
-    Groq (primary) -> Bedrock Claude -> HuggingFace -> Local Llama (GGUF/Transformers) -> Ollama
+    Groq (primary) -> Bedrock Claude -> HuggingFace -> Local Llama (GGUF/Transformers)
 
 Nova Lite is intentionally not used by default to respect user preference.
 """
 import json
 import time
+import sqlite3
+import hashlib
+import threading
+import re
 from typing import Optional, Dict, Any, List
 from enum import Enum
 
@@ -32,12 +36,18 @@ class LLMProvider(str, Enum):
 
 class LLMClient:
     """
-    Unified LLM client with automatic fallback (Groq → Bedrock Claude → HF → local Llama → Ollama)
+    Unified LLM client with automatic fallback (Groq → Bedrock Claude → HF → local Llama)
     """
 
     def __init__(self):
+        self.cache_enabled = settings.LLM_CACHE_ENABLED
+        self.cache_ttl_seconds = settings.LLM_CACHE_TTL_SECONDS
+        self.cache_max_entries = settings.LLM_CACHE_MAX_ENTRIES
+        self._cache_conn = None
+        self._cache_lock = threading.Lock()
         self.groq_client = None
         self.groq_client_b = None   # Backup Groq client (GROQ_API_KEY_B)
+        self.groq_client_c = None   # Tertiary Groq client (GROQ_API_KEY_C)
         self.bedrock_client = None
         self.huggingface_client = None
         self.ollama_client = None   # Stores base URL string when Ollama is reachable
@@ -45,12 +55,289 @@ class LLMClient:
         self.llama_tokenizer = None
         self.llama_device = None
         self.llama_model_name = None
+        self._groq_rr_lock = threading.Lock()
+        self._groq_next_key = 1
+        self._groq_cooldown_until = {1: 0.0, 2: 0.0, 3: 0.0}
+        self._groq_provider_cooldown_until = 0.0
         self._initialize_groq()
         self._initialize_groq_b()
+        self._initialize_groq_c()
         self._initialize_bedrock()
         self._initialize_huggingface()
         self._initialize_ollama()
         self._initialize_llama()
+        self._initialize_cache()
+
+    def _initialize_cache(self) -> None:
+        """Initialize local SQLite cache for LLM responses."""
+        if not self.cache_enabled:
+            logger.info("LLM response cache disabled")
+            return
+
+        try:
+            settings.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cache_db = settings.CACHE_DIR / "llm_response_cache.db"
+            self._cache_conn = sqlite3.connect(str(cache_db), check_same_thread=False)
+            cur = self._cache_conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS llm_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    response_json TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    last_accessed REAL NOT NULL
+                )
+                """
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_llm_cache_last_accessed ON llm_cache(last_accessed)"
+            )
+            self._cache_conn.commit()
+            logger.info(
+                f"LLM response cache initialized at {cache_db} "
+                f"(ttl={self.cache_ttl_seconds}s, max_entries={self.cache_max_entries})"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize LLM cache: {e}")
+            self._cache_conn = None
+
+    def _build_cache_key(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        force_provider: Optional[LLMProvider],
+        groq_model: Optional[str],
+        groq_key: int,
+    ) -> str:
+        payload = {
+            "prompt": prompt,
+            "system_prompt": system_prompt or "",
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "force_provider": force_provider.value if force_provider else None,
+            "groq_model": groq_model,
+        }
+        raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def _is_rate_limit_error(self, error: Exception) -> bool:
+        """Best-effort 429 / rate-limit detector across provider SDK exception types."""
+        text = str(error).lower()
+        return (
+            "429" in text
+            or "rate limit" in text
+            or "too many requests" in text
+            or "ratelimit" in text
+        )
+
+    def _next_groq_start_key(self, available_keys: List[int]) -> int:
+        """Round-robin key selector across all currently available Groq keys."""
+        if not available_keys:
+            return 1
+
+        with self._groq_rr_lock:
+            candidate = self._groq_next_key
+            if candidate not in available_keys:
+                candidate = sorted(available_keys)[0]
+            self._groq_next_key = 1 if candidate >= 3 else candidate + 1
+            return candidate
+
+    def _groq_attempt_plan(self, requested_key: int = 1) -> List[tuple[str, Any, int]]:
+        """Return ordered [(label, client, key_num), ...] for this request."""
+        available = {
+            1: self.groq_client,
+            2: self.groq_client_b,
+            3: self.groq_client_c,
+        }
+        available_keys = [k for k, c in available.items() if c is not None]
+        if not available_keys:
+            return []
+        if len(available_keys) == 1:
+            key_num = available_keys[0]
+            return [(f"key-{key_num}", available[key_num], key_num)]
+
+        # If caller explicitly asks for non-default key (2/3), honor that first.
+        if requested_key in available_keys and requested_key != 1:
+            ordered_keys = [requested_key] + [k for k in sorted(available_keys) if k != requested_key]
+        else:
+            start_key = self._next_groq_start_key(available_keys)
+            sorted_keys = sorted(available_keys)
+            start_index = sorted_keys.index(start_key)
+            ordered_keys = sorted_keys[start_index:] + sorted_keys[:start_index]
+
+        return [(f"key-{k}", available[k], k) for k in ordered_keys]
+
+    def _extract_retry_after_seconds(self, error: Exception) -> Optional[float]:
+        """Parse provider error text for retry-after hints like 750ms, 6.2s, 20m20.8s."""
+        text = str(error).lower()
+
+        complex_match = re.search(r"please try again in\s*(\d+)m(\d+(?:\.\d+)?)s", text)
+        if complex_match:
+            minutes = float(complex_match.group(1))
+            seconds = float(complex_match.group(2))
+            return minutes * 60.0 + seconds
+
+        sec_match = re.search(r"please try again in\s*(\d+(?:\.\d+)?)s", text)
+        if sec_match:
+            return float(sec_match.group(1))
+
+        ms_match = re.search(r"please try again in\s*(\d+(?:\.\d+)?)ms", text)
+        if ms_match:
+            return float(ms_match.group(1)) / 1000.0
+
+        return None
+
+    def _set_groq_key_cooldown(self, key_num: int, error: Exception) -> None:
+        """Mark a Groq key unavailable until the provider-suggested retry time."""
+        retry_after = self._extract_retry_after_seconds(error)
+        if retry_after is None:
+            retry_after = 2.0
+        self._groq_cooldown_until[key_num] = time.time() + max(0.2, retry_after)
+
+    def _set_groq_provider_cooldown_from_keys(self) -> None:
+        """If all available keys are cooling down, set provider cooldown until earliest key recovery."""
+        now = time.time()
+        clients = {
+            1: self.groq_client,
+            2: self.groq_client_b,
+            3: self.groq_client_c,
+        }
+        active_keys = [k for k, client in clients.items() if client is not None]
+        if not active_keys:
+            return
+
+        cooldowns = [self._groq_cooldown_until.get(k, 0.0) for k in active_keys]
+        if all(c > now for c in cooldowns):
+            self._groq_provider_cooldown_until = min(cooldowns)
+
+    def _invoke_groq_with_fallback(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        groq_model: Optional[str],
+        requested_key: int,
+        errors: List[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Try Groq keys in order for this request; return first success."""
+        plan = self._groq_attempt_plan(requested_key=requested_key)
+        if not plan:
+            return None
+
+        now = time.time()
+        active_plan = []
+        for key_label, key_client, key_num in plan:
+            cooldown_until = self._groq_cooldown_until.get(key_num, 0.0)
+            if now < cooldown_until:
+                wait_left = cooldown_until - now
+                logger.info(f"Skipping Groq ({key_label}) due to cooldown ({wait_left:.2f}s left)")
+                errors.append(f"Groq-{key_label}: cooldown {wait_left:.2f}s")
+                continue
+            active_plan.append((key_label, key_client, key_num))
+
+        if not active_plan:
+            self._set_groq_provider_cooldown_from_keys()
+            return None
+
+        for key_label, key_client, key_num in active_plan:
+            try:
+                logger.info(f"Using Groq ({key_label}) model={groq_model or settings.GROQ_MODEL}")
+                return self._invoke_groq(
+                    prompt,
+                    system_prompt,
+                    max_tokens,
+                    temperature,
+                    groq_model=groq_model,
+                    client=key_client,
+                )
+            except Exception as groq_error:
+                if self._is_rate_limit_error(groq_error):
+                    self._set_groq_key_cooldown(key_num, groq_error)
+                    self._set_groq_provider_cooldown_from_keys()
+                    logger.warning(f"Groq ({key_label}) rate-limited: {groq_error}")
+                else:
+                    logger.warning(f"Groq ({key_label}) failed: {groq_error}")
+                errors.append(f"Groq-{key_label}: {groq_error}")
+
+        return None
+
+    def _cache_get(self, cache_key: str) -> Optional[Dict[str, Any]]:
+        if not self.cache_enabled or self._cache_conn is None:
+            return None
+        now = time.time()
+        with self._cache_lock:
+            cur = self._cache_conn.cursor()
+            cur.execute(
+                "SELECT response_json, created_at FROM llm_cache WHERE cache_key = ?",
+                (cache_key,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+
+            response_json, created_at = row
+            if (now - float(created_at)) > self.cache_ttl_seconds:
+                cur.execute("DELETE FROM llm_cache WHERE cache_key = ?", (cache_key,))
+                self._cache_conn.commit()
+                return None
+
+            cur.execute(
+                "UPDATE llm_cache SET last_accessed = ? WHERE cache_key = ?",
+                (now, cache_key),
+            )
+            self._cache_conn.commit()
+
+        try:
+            cached = json.loads(response_json)
+            cached["cache_hit"] = True
+            cached["latency"] = 0.0
+            return cached
+        except Exception:
+            return None
+
+    def _cache_set(self, cache_key: str, response: Dict[str, Any]) -> None:
+        if not self.cache_enabled or self._cache_conn is None:
+            return
+
+        cache_payload = {
+            "content": response.get("content", ""),
+            "provider": response.get("provider"),
+            "model": response.get("model"),
+            "tokens": response.get("tokens", {}),
+            "system_prompt": response.get("system_prompt"),
+            "user_prompt": response.get("user_prompt"),
+        }
+
+        now = time.time()
+        with self._cache_lock:
+            cur = self._cache_conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO llm_cache(cache_key, response_json, created_at, last_accessed)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(cache_key) DO UPDATE SET
+                    response_json=excluded.response_json,
+                    created_at=excluded.created_at,
+                    last_accessed=excluded.last_accessed
+                """,
+                (cache_key, json.dumps(cache_payload, ensure_ascii=False), now, now),
+            )
+
+            cur.execute("SELECT COUNT(*) FROM llm_cache")
+            count = int(cur.fetchone()[0])
+            if count > self.cache_max_entries:
+                to_remove = count - self.cache_max_entries
+                cur.execute(
+                    "DELETE FROM llm_cache WHERE cache_key IN ("
+                    "SELECT cache_key FROM llm_cache ORDER BY last_accessed ASC LIMIT ?"
+                    ")",
+                    (to_remove,),
+                )
+
+            self._cache_conn.commit()
     
     def _initialize_groq(self) -> None:
         """Initialize Groq API client (primary key)"""
@@ -61,11 +348,20 @@ class LLMClient:
             
         try:
             from groq import Groq
-            
-            self.groq_client = Groq(
-                api_key=settings.GROQ_API_KEY,
-                timeout=settings.GROQ_TIMEOUT
-            )
+
+            # Keep provider-level retries at 0 so our explicit fallback logic can
+            # immediately switch key/provider on 429s.
+            try:
+                self.groq_client = Groq(
+                    api_key=settings.GROQ_API_KEY,
+                    timeout=settings.GROQ_TIMEOUT,
+                    max_retries=0,
+                )
+            except TypeError:
+                self.groq_client = Groq(
+                    api_key=settings.GROQ_API_KEY,
+                    timeout=settings.GROQ_TIMEOUT,
+                )
             
             logger.info(f"Groq API client (primary) initialized (model: {settings.GROQ_MODEL})")
         except ImportError:
@@ -90,14 +386,47 @@ class LLMClient:
         try:
             from groq import Groq
 
-            self.groq_client_b = Groq(
-                api_key=settings.GROQ_API_KEY_B,
-                timeout=settings.GROQ_TIMEOUT
-            )
+            try:
+                self.groq_client_b = Groq(
+                    api_key=settings.GROQ_API_KEY_B,
+                    timeout=settings.GROQ_TIMEOUT,
+                    max_retries=0,
+                )
+            except TypeError:
+                self.groq_client_b = Groq(
+                    api_key=settings.GROQ_API_KEY_B,
+                    timeout=settings.GROQ_TIMEOUT,
+                )
             logger.info(f"Groq API client (backup) initialized (model: {settings.GROQ_MODEL})")
         except Exception as e:
             logger.warning(f"Failed to initialize backup Groq client: {e}")
             self.groq_client_b = None
+
+    def _initialize_groq_c(self) -> None:
+        """Initialize tertiary Groq API client (GROQ_API_KEY_C)."""
+        if not getattr(settings, 'GROQ_API_KEY_C', None):
+            logger.info("GROQ_API_KEY_C not configured — tertiary Groq key unavailable")
+            self.groq_client_c = None
+            return
+
+        try:
+            from groq import Groq
+
+            try:
+                self.groq_client_c = Groq(
+                    api_key=settings.GROQ_API_KEY_C,
+                    timeout=settings.GROQ_TIMEOUT,
+                    max_retries=0,
+                )
+            except TypeError:
+                self.groq_client_c = Groq(
+                    api_key=settings.GROQ_API_KEY_C,
+                    timeout=settings.GROQ_TIMEOUT,
+                )
+            logger.info(f"Groq API client (tertiary) initialized (model: {settings.GROQ_MODEL})")
+        except Exception as e:
+            logger.warning(f"Failed to initialize tertiary Groq client: {e}")
+            self.groq_client_c = None
     
     def _initialize_bedrock(self) -> None:
         """Initialize AWS Bedrock client"""
@@ -108,11 +437,12 @@ class LLMClient:
             return
             
         try:
+            bedrock_timeout = 10 if settings.BEDROCK_ONLY_MODE else settings.BEDROCK_TIMEOUT
             boto_config = Config(
                 region_name=settings.AWS_REGION,
-                connect_timeout=settings.BEDROCK_TIMEOUT,
-                read_timeout=settings.BEDROCK_TIMEOUT,
-                retries={'max_attempts': settings.MAX_RETRIES}
+                connect_timeout=bedrock_timeout,
+                read_timeout=bedrock_timeout,
+                retries={'max_attempts': 1 if settings.BEDROCK_ONLY_MODE else settings.MAX_RETRIES}
             )
             
             self.bedrock_client = boto3.client(
@@ -446,7 +776,7 @@ class LLMClient:
             logger.error(f"Groq API error: {e}")
             raise
     
-    @with_retry()
+    @with_retry(max_attempts=1, min_wait=1, max_wait=1, multiplier=1)
     def _invoke_bedrock_claude(
         self,
         prompt: str,
@@ -473,6 +803,8 @@ class LLMClient:
             raise RuntimeError("Bedrock client not initialized")
         
         max_tokens = max_tokens or settings.BEDROCK_MAX_TOKENS
+        if settings.BEDROCK_ONLY_MODE:
+            max_tokens = min(max_tokens, 450)
         temperature = temperature if temperature is not None else settings.BEDROCK_TEMPERATURE
         
         # Construct Claude 3 message format
@@ -524,7 +856,7 @@ class LLMClient:
 
     NOVA_LITE_MODEL_ID = "us.amazon.nova-lite-v1:0"
 
-    @with_retry()
+    @with_retry(max_attempts=1, min_wait=1, max_wait=1, multiplier=1)
     def _invoke_nova(
         self,
         prompt: str,
@@ -540,6 +872,9 @@ class LLMClient:
             raise RuntimeError("Bedrock client not initialized")
 
         max_tokens = max_tokens or settings.BEDROCK_MAX_TOKENS
+        # Hard cap for low latency under Bedrock-only mode.
+        if settings.BEDROCK_ONLY_MODE:
+            max_tokens = min(max_tokens, 700)
         temperature = temperature if temperature is not None else settings.BEDROCK_TEMPERATURE
 
         request_body: Dict[str, Any] = {
@@ -850,7 +1185,7 @@ class LLMClient:
         """
         Generate completion with automatic fallback
         
-        Fallback chain: Bedrock → HuggingFace → Llama (local)
+        Fallback chain: Groq → Bedrock → HuggingFace → Llama (local)
         
         Args:
             prompt: User prompt
@@ -865,49 +1200,125 @@ class LLMClient:
         Raises:
             RuntimeError if all providers fail
         """
+        effective_force_provider = force_provider
+        if settings.BEDROCK_ONLY_MODE and force_provider is None:
+            if settings.BEDROCK_ONLY_PROVIDER == "claude":
+                effective_force_provider = LLMProvider.BEDROCK_CLAUDE
+            else:
+                effective_force_provider = LLMProvider.BEDROCK_NOVA
+
+        cache_key = self._build_cache_key(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            force_provider=effective_force_provider,
+            groq_model=groq_model,
+            groq_key=groq_key,
+        )
+        cached_response = self._cache_get(cache_key)
+        if cached_response is not None:
+            logger.info("LLM cache hit")
+            return cached_response
+
         # Try forced provider if specified
-        if force_provider == LLMProvider.GROQ:
+        if effective_force_provider == LLMProvider.GROQ:
             logger.info("Using forced provider: Groq")
-            return self._invoke_groq(prompt, system_prompt, max_tokens, temperature)
-        elif force_provider == LLMProvider.BEDROCK_NOVA:
+            response = self._invoke_groq_with_fallback(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                groq_model=groq_model,
+                requested_key=groq_key,
+                errors=[],
+            )
+            if response is None:
+                raise RuntimeError("Forced Groq provider failed on all configured keys")
+            self._cache_set(cache_key, response)
+            return response
+        elif effective_force_provider == LLMProvider.BEDROCK_NOVA:
             logger.info("Using forced provider: Nova Lite")
-            return self._invoke_nova(prompt, system_prompt, max_tokens, temperature)
-        elif force_provider == LLMProvider.BEDROCK_CLAUDE:
+            try:
+                response = self._invoke_nova(prompt, system_prompt, max_tokens, temperature)
+                self._cache_set(cache_key, response)
+                return response
+            except Exception as nova_error:
+                if settings.BEDROCK_ONLY_MODE and self.bedrock_client:
+                    logger.warning(f"Nova Lite failed in bedrock-only mode, trying Claude: {nova_error}")
+                    response = self._invoke_bedrock_claude(prompt, system_prompt, max_tokens, temperature)
+                    self._cache_set(cache_key, response)
+                    return response
+                raise
+        elif effective_force_provider == LLMProvider.BEDROCK_CLAUDE:
             logger.info("Using forced provider: Bedrock Claude")
-            return self._invoke_bedrock_claude(prompt, system_prompt, max_tokens, temperature)
-        elif force_provider == LLMProvider.HUGGINGFACE:
+            try:
+                response = self._invoke_bedrock_claude(prompt, system_prompt, max_tokens, temperature)
+                self._cache_set(cache_key, response)
+                return response
+            except Exception as claude_error:
+                if settings.BEDROCK_ONLY_MODE and self.bedrock_client:
+                    logger.warning(f"Bedrock Claude failed in bedrock-only mode, trying Nova Lite: {claude_error}")
+                    response = self._invoke_nova(prompt, system_prompt, max_tokens, temperature)
+                    self._cache_set(cache_key, response)
+                    return response
+                raise
+        elif effective_force_provider == LLMProvider.HUGGINGFACE:
             logger.info("Using forced provider: HuggingFace")
-            return self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
-        elif force_provider == LLMProvider.LOCAL_LLAMA:
+            response = self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
+            self._cache_set(cache_key, response)
+            return response
+        elif effective_force_provider == LLMProvider.LOCAL_LLAMA:
             logger.info("Using forced provider: Local Llama")
-            return self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
+            response = self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
+            self._cache_set(cache_key, response)
+            return response
         
         errors = []
+        now = time.time()
+        groq_provider_in_cooldown = now < self._groq_provider_cooldown_until
+        if groq_provider_in_cooldown:
+            wait_left = self._groq_provider_cooldown_until - now
+            logger.info(f"Skipping Groq provider due to cooldown ({wait_left:.2f}s left)")
+            errors.append(f"Groq-provider: cooldown {wait_left:.2f}s")
 
         # ROUTING STRATEGY:
         # - If a groq_model is provided and a Groq client is available, prefer Groq (fast)
-        if groq_model and (self.groq_client or self.groq_client_b):
-            # Select key: use secondary (groq_client_b) when groq_key==2 and available, else primary
-            selected_client = (
-                self.groq_client_b if groq_key == 2 and self.groq_client_b
-                else self.groq_client
+        if (not groq_provider_in_cooldown) and groq_model and (self.groq_client or self.groq_client_b or self.groq_client_c):
+            response = self._invoke_groq_with_fallback(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                groq_model=groq_model,
+                requested_key=groq_key,
+                errors=errors,
             )
-            key_label = "key-2" if (groq_key == 2 and self.groq_client_b) else "key-1"
-            try:
-                logger.info(f"Using Groq ({key_label}) model={groq_model}")
-                return self._invoke_groq(prompt, system_prompt, max_tokens, temperature,
-                                         groq_model=groq_model, client=selected_client)
-            except Exception as groq_error:
-                logger.warning(f"Groq ({key_label}) failed: {groq_error}")
-                errors.append(f"Groq-{key_label}: {groq_error}")
-        # Bedrock Claude (preferred Bedrock provider)
+            if response is not None:
+                self._cache_set(cache_key, response)
+                return response
+
+        prefer_nova = (max_tokens or 0) >= 1000
+
+        # Bedrock fallback (Nova first for large generations to reduce latency)
         if self.bedrock_client:
-            try:
-                logger.info("Using Bedrock Claude (user-preferred Bedrock provider)")
-                return self._invoke_bedrock_claude(prompt, system_prompt, max_tokens, temperature)
-            except Exception as bedrock_error:
-                logger.warning(f"Bedrock Claude failed: {bedrock_error}")
-                errors.append(f"Bedrock: {bedrock_error}")
+            bedrock_attempts = [
+                ("Nova Lite", self._invoke_nova),
+                ("Bedrock Claude", self._invoke_bedrock_claude),
+            ] if prefer_nova else [
+                ("Bedrock Claude", self._invoke_bedrock_claude),
+                ("Nova Lite", self._invoke_nova),
+            ]
+
+            for bedrock_label, bedrock_call in bedrock_attempts:
+                try:
+                    logger.info(f"Using {bedrock_label} fallback")
+                    response = bedrock_call(prompt, system_prompt, max_tokens, temperature)
+                    self._cache_set(cache_key, response)
+                    return response
+                except Exception as bedrock_error:
+                    logger.warning(f"{bedrock_label} failed: {bedrock_error}")
+                    errors.append(f"{bedrock_label}: {bedrock_error}")
         else:
             logger.debug("Bedrock client not available, skipping")
         
@@ -915,7 +1326,9 @@ class LLMClient:
         if self.huggingface_client:
             try:
                 logger.info("Falling back to HuggingFace Inference API")
-                return self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
+                response = self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
+                self._cache_set(cache_key, response)
+                return response
             
             except Exception as hf_error:
                 logger.warning(f"HuggingFace fallback failed: {hf_error}", exc_info=True)
@@ -923,36 +1336,16 @@ class LLMClient:
         else:
             logger.info("HuggingFace client not available, skipping")
         
-        # Fallback to HuggingFace
-        if self.huggingface_client:
-            try:
-                logger.info("Falling back to HuggingFace Inference API")
-                return self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
-            except Exception as hf_error:
-                logger.warning(f"HuggingFace fallback failed: {hf_error}", exc_info=True)
-                errors.append(f"HuggingFace: {hf_error}")
-        else:
-            logger.info("HuggingFace client not available, skipping")
-
         # Fallback to local Llama (GGUF / Transformers)
         if self.llama_client:
             try:
                 logger.info("Falling back to local Llama (GGUF/Transformers)")
-                return self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
+                response = self._invoke_llama(prompt, system_prompt, max_tokens, temperature)
+                self._cache_set(cache_key, response)
+                return response
             except Exception as llama_error:
                 logger.error(f"Local Llama fallback also failed: {llama_error}")
                 errors.append(f"LocalLlama: {llama_error}")
-
-        # Fallback to Ollama (local server)
-        if self.ollama_client:
-            try:
-                logger.info(f"Falling back to Ollama ({getattr(settings, 'OLLAMA_MODEL', 'llama3.1')})")
-                return self._invoke_ollama(prompt, system_prompt, max_tokens, temperature)
-            except Exception as ollama_error:
-                logger.warning(f"Ollama fallback failed: {ollama_error}")
-                errors.append(f"Ollama: {ollama_error}")
-        else:
-            logger.info("Ollama not available, skipping")
 
         # If we reach here, all providers failed
         logger.error("All LLM providers exhausted")
