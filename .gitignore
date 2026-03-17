@@ -53,6 +53,8 @@ models/.cache/
 
 # Data
 data/cache/
+data/d2/
+data/evaluation_dataset_d2.csv
 data/faiss_indexes/
 data/*.db
 data/samples/*
