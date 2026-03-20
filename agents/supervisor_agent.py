@@ -310,6 +310,52 @@ class SupervisorAgent:
             self.standard_workflow.compile()
         logger.info(f"{self.name}: All workflows compiled")
 
+    def get_graph_mermaid(self) -> str:
+        """
+        Return a clean, hand-crafted Mermaid diagram for the supervisor/HITL graph.
+        """
+        return self._generate_supervisor_mermaid()
+
+    def _generate_supervisor_mermaid(self) -> str:
+        """Generate a user-friendly Mermaid diagram of the current supervisor flow."""
+        return """graph TD
+    START([🚀 START]) --> classify[📋 Classify]
+    classify --> supervise_classification[🧠 Supervisor Checkpoint #1]
+    supervise_classification --> human_review_classify[👤 HITL Review #1<br/>Classification]
+
+    human_review_classify -->|Approved/Corrected| extract[📤 Extract]
+    human_review_classify -->|Rejected| report[📊 Report]
+
+    extract --> validate[✓ Validate]
+    validate --> supervise_validation[🧠 Supervisor Checkpoint #2]
+
+    supervise_validation -->|Retry Needed| repair[🔧 Self Repair]
+    supervise_validation -->|Human Review Needed| human_review_extract[👤 HITL Review #2<br/>Extraction]
+    supervise_validation -->|Auto Approved| redact[🔒 Redact]
+
+    repair --> validate
+    human_review_extract -->|Approved/Corrected| redact
+    human_review_extract -->|Rejected| report
+
+    redact --> report
+    report --> END([✔️ END])
+
+    style START fill:#90EE90,stroke:#006400,stroke-width:3px
+    style END fill:#90EE90,stroke:#006400,stroke-width:3px
+
+    style classify fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+    style extract fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+    style validate fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+    style redact fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+    style report fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+
+    style supervise_classification fill:#D8BFD8,stroke:#8A2BE2,stroke-width:2px
+    style supervise_validation fill:#D8BFD8,stroke:#8A2BE2,stroke-width:2px
+    style human_review_classify fill:#FFE4B5,stroke:#FF8C00,stroke-width:2px
+    style human_review_extract fill:#FFE4B5,stroke:#FF8C00,stroke-width:2px
+    style repair fill:#FFD700,stroke:#FF8C00,stroke-width:2px
+"""
+
     # ── State initialization ───────────────────────────────────────────────────
 
     def _initialize_state(self, file_path: str, raw_text: str) -> DocumentState:

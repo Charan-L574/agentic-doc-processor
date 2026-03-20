@@ -449,7 +449,7 @@ async def upload_and_process(
 
 
 @app.get("/visualize/graph")
-async def visualize_graph(format: str = "mermaid"):
+async def visualize_graph(format: str = "mermaid", mode: str = "supervisor"):
     """
     Get workflow graph visualization
     
@@ -460,23 +460,32 @@ async def visualize_graph(format: str = "mermaid"):
         Mermaid diagram or graph JSON
     """
     try:
+        mode_normalized = (mode or "supervisor").strip().lower()
+        target_workflow = supervisor_agent if mode_normalized == "supervisor" else workflow
+
         if format == "mermaid":
-            mermaid_diagram = graph_visualizer.generate_mermaid_diagram(workflow)
+            mermaid_diagram = graph_visualizer.generate_mermaid_diagram(target_workflow)
             return {
                 "format": "mermaid",
+                "mode": mode_normalized,
                 "diagram": mermaid_diagram
             }
         elif format == "json":
             # Return graph structure as JSON
-            if hasattr(workflow, 'compiled_graph') and workflow.compiled_graph:
-                graph = workflow.compiled_graph.get_graph()
-                return {
-                    "format": "json",
-                    "nodes": [node for node in graph.nodes],
-                    "edges": [(edge[0], edge[1]) for edge in graph.edges]
-                }
+            if mode_normalized == "supervisor":
+                supervisor_agent.compile_workflows()
+                graph = supervisor_agent._compiled.get_graph()
             else:
-                return {"error": "Graph not compiled"}
+                if workflow.compiled_graph is None:
+                    workflow.compile()
+                graph = workflow.compiled_graph.get_graph()
+
+            return {
+                "format": "json",
+                "mode": mode_normalized,
+                "nodes": [node for node in graph.nodes],
+                "edges": [(edge[0], edge[1]) for edge in graph.edges]
+            }
         else:
             raise HTTPException(status_code=400, detail="Format must be 'mermaid' or 'json'")
     
@@ -486,7 +495,7 @@ async def visualize_graph(format: str = "mermaid"):
 
 
 @app.post("/visualize/trace")
-async def visualize_execution_trace(trace_log: List[Dict[str, Any]]):
+async def visualize_execution_trace(trace_log: List[Dict[str, Any]], mode: str = "supervisor"):
     """
     Generate execution trace visualization from trace log (sequence diagram)
     
@@ -497,13 +506,14 @@ async def visualize_execution_trace(trace_log: List[Dict[str, Any]]):
         Mermaid sequence diagram showing actual execution flow
     """
     try:
-        sequence_diagram = graph_visualizer.visualize_execution_trace(trace_log)
+        sequence_diagram = graph_visualizer.visualize_execution_trace(trace_log, mode=mode)
         
         # Extract execution path
-        execution_path = graph_visualizer.extract_execution_path(trace_log)
+        execution_path = graph_visualizer.extract_execution_path(trace_log, mode=mode)
         
         return {
             "format": "mermaid",
+            "mode": mode,
             "diagram": sequence_diagram,
             "execution_path": execution_path,
             "total_steps": len(trace_log)
@@ -515,7 +525,7 @@ async def visualize_execution_trace(trace_log: List[Dict[str, Any]]):
 
 
 @app.post("/visualize/execution-path")
-async def visualize_execution_path(trace_log: List[Dict[str, Any]]):
+async def visualize_execution_path(trace_log: List[Dict[str, Any]], mode: str = "supervisor"):
     """
     Generate execution path diagram showing the actual path taken through the workflow
     
@@ -527,16 +537,17 @@ async def visualize_execution_path(trace_log: List[Dict[str, Any]]):
     """
     try:
         # Generate path diagram with highlighted nodes
-        path_diagram = graph_visualizer.generate_execution_path_diagram(trace_log)
+        path_diagram = graph_visualizer.generate_execution_path_diagram(trace_log, mode=mode)
         
         # Extract execution path for reference
-        execution_path = graph_visualizer.extract_execution_path(trace_log)
+        execution_path = graph_visualizer.extract_execution_path(trace_log, mode=mode)
         
         # Count repair attempts
         repair_count = execution_path.count("repair")
         
         return {
             "format": "mermaid",
+            "mode": mode,
             "diagram": path_diagram,
             "execution_path": execution_path,
             "repair_attempts": repair_count,
@@ -557,7 +568,7 @@ async def visualize_execution_path(trace_log: List[Dict[str, Any]]):
 
 
 @app.get("/workflow/diagram")
-async def get_workflow_diagram():
+async def get_workflow_diagram(mode: str = "supervisor"):
     """
     Get Mermaid diagram of the workflow
     
@@ -566,10 +577,13 @@ async def get_workflow_diagram():
     """
     try:
         from utils.graph_visualizer import graph_visualizer
-        
-        mermaid_diagram = graph_visualizer.generate_mermaid_diagram(workflow)
+
+        mode_normalized = (mode or "supervisor").strip().lower()
+        target_workflow = supervisor_agent if mode_normalized == "supervisor" else workflow
+        mermaid_diagram = graph_visualizer.generate_mermaid_diagram(target_workflow)
         return {
             "diagram": mermaid_diagram,
+            "mode": mode_normalized,
             "format": "mermaid",
             "visualizer_url": "https://mermaid.live/edit"
         }
