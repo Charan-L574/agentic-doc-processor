@@ -24,6 +24,10 @@ class Env:
         if env_file.exists():
             self._load_env_file(env_file)
 
+        skip_hf_from_config = self.config.getboolean('runtime', 'skip_hf', fallback=False)
+        if skip_hf_from_config and not os.environ.get("SKIP_HF"):
+            os.environ["SKIP_HF"] = "true"
+
         self._load_aws_secrets()
 
     def _load_env_file(self, env_file: Path) -> None:
@@ -350,6 +354,13 @@ class Env:
     @property
     def LOW_LATENCY_MODE(self) -> bool:
         return os.environ.get('LOW_LATENCY_MODE', 'false').strip().lower() in {"1", "true", "yes", "on"}
+
+    @property
+    def SKIP_HF(self) -> bool:
+        env_val = os.environ.get('SKIP_HF')
+        if env_val is not None:
+            return env_val.strip().lower() in {"1", "true", "yes", "on"}
+        return self.getboolean('runtime', 'skip_hf', False)
 
     # Metrics
     @property

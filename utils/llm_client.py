@@ -41,6 +41,7 @@ class LLMClient:
 
     def __init__(self):
         self.stack_provider = settings.STACK_LLM_PROVIDER.strip().lower()
+        self.skip_hf = settings.SKIP_HF
         self.cache_enabled = settings.LLM_CACHE_ENABLED
         self.cache_ttl_seconds = settings.LLM_CACHE_TTL_SECONDS
         self.cache_max_entries = settings.LLM_CACHE_MAX_ENTRIES
@@ -66,7 +67,10 @@ class LLMClient:
 
         if self.stack_provider != LLMProvider.GROQ.value:
             self._initialize_bedrock()
-            self._initialize_huggingface()
+            if not self.skip_hf:
+                self._initialize_huggingface()
+            else:
+                logger.info("SKIP_HF enabled: skipping HuggingFace client initialization")
             self._initialize_ollama()
             self._initialize_llama()
         else:
@@ -1278,6 +1282,8 @@ class LLMClient:
                     return response
                 raise
         elif effective_force_provider == LLMProvider.HUGGINGFACE:
+            if self.skip_hf:
+                raise RuntimeError("HuggingFace provider is disabled (SKIP_HF=true)")
             logger.info("Using forced provider: HuggingFace")
             response = self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)
             self._cache_set(cache_key, response)
@@ -1337,7 +1343,9 @@ class LLMClient:
             logger.debug("Bedrock client not available, skipping")
         
         # Fallback to HuggingFace
-        if self.huggingface_client:
+        if self.skip_hf:
+            logger.info("SKIP_HF enabled: skipping HuggingFace fallback")
+        elif self.huggingface_client:
             try:
                 logger.info("Falling back to HuggingFace Inference API")
                 response = self._invoke_huggingface(prompt, system_prompt, max_tokens, temperature)

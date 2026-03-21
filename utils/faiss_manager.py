@@ -1,6 +1,9 @@
 """
 FAISS-based semantic search module for context retrieval
 """
+import os
+import re
+import hashlib
 import pickle
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -36,15 +39,21 @@ class FAISSIndex:
         self.index_name = index_name
         self.index_path = settings.FAISS_INDEX_DIR / f"{index_name}.faiss"
         self.metadata_path = settings.FAISS_INDEX_DIR / f"{index_name}_metadata.pkl"
+        self.skip_hf = os.getenv("SKIP_HF", "false").strip().lower() in {"1", "true", "yes", "on"}
         
         # Initialize embedding model
-        try:
-            self.encoder = SentenceTransformer(model_name)
-            self.dimension = self.encoder.get_sentence_embedding_dimension()
-            logger.info(f"FAISS encoder loaded: {model_name}, dimension={self.dimension}")
-        except Exception as e:
-            logger.error(f"Failed to load encoder: {e}")
-            raise
+        if self.skip_hf:
+            self.encoder = None
+            self.dimension = 384
+            logger.info("SKIP_HF enabled: using local hash embeddings for FAISS (no HuggingFace downloads)")
+        else:
+            try:
+                self.encoder = SentenceTransformer(model_name)
+                self.dimension = self.encoder.get_sentence_embedding_dimension()
+                logger.info(f"FAISS encoder loaded: {model_name}, dimension={self.dimension}")
+            except Exception as e:
+                logger.error(f"Failed to load encoder: {e}")
+                raise
         
         # Initialize or load index
         self.index = None
@@ -97,11 +106,7 @@ class FAISSIndex:
         try:
             # Generate embeddings
             logger.info(f"Encoding {len(texts)} documents")
-            embeddings = self.encoder.encode(
-                texts,
-                show_progress_bar=False,
-                convert_to_numpy=True
-            )
+            embeddings = self._encode_texts(texts)
             
             # Add to index
             self.index.add(embeddings.astype('float32'))
@@ -134,10 +139,7 @@ class FAISSIndex:
         
         try:
             # Encode query
-            query_embedding = self.encoder.encode(
-                [query],
-                convert_to_numpy=True
-            ).astype('float32')
+            query_embedding = self._encode_texts([query]).astype('float32')
             
             # Search
             k = min(k, self.index.ntotal)
@@ -159,6 +161,32 @@ class FAISSIndex:
         except Exception as e:
             logger.error(f"FAISS search failed: {e}")
             return []
+
+    def _encode_texts(self, texts: List[str]) -> np.ndarray:
+        if self.encoder is not None:
+            return self.encoder.encode(
+                texts,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+            )
+
+        vectors: List[np.ndarray] = []
+        for text in texts:
+            vec = np.zeros(self.dimension, dtype=np.float32)
+            tokens = re.findall(r"[a-zA-Z0-9_]+", (text or "").lower())
+            if not tokens:
+                vectors.append(vec)
+                continue
+            for token in tokens:
+                digest = hashlib.md5(token.encode("utf-8")).hexdigest()
+                idx = int(digest, 16) % self.dimension
+                vec[idx] += 1.0
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                vec /= norm
+            vectors.append(vec)
+
+        return np.vstack(vectors)
     
     def save(self) -> None:
         """Save index and metadata to disk"""
@@ -185,5 +213,6 @@ def get_faiss_index() -> FAISSIndex:
     """Get or create global FAISS index"""
     global _faiss_index
     if _faiss_index is None:
-        _faiss_index = FAISSIndex()
+        model_name = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
+        _faiss_index = FAISSIndex(model_name=model_name)
     return _faiss_index

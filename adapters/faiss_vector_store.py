@@ -10,14 +10,22 @@ class FAISSVectorStoreAdapter(VectorStoreService):
     """Adapter over existing FAISS manager implementation."""
 
     def __init__(self):
-        self.index = get_faiss_index()
+        self._faiss_index = None
+
+    def _get_index(self):
+        if self._faiss_index is None:
+            self._faiss_index = get_faiss_index()
+        return self._faiss_index
 
     def index(self, texts: List[str], metadata: List[Dict[str, Any]]) -> None:
-        self.index.add_documents(texts=texts, metadata=metadata)
-        self.index.save()
+        idx = self._get_index()
+        idx.add_documents(texts=texts, metadata=metadata)
+        idx.save()
 
     def search(self, query: str, k: int = 3) -> List[Dict[str, Any]]:
-        return self.index.search(query=query, k=k)
+        idx = self._get_index()
+        return idx.search(query=query, k=k)
 
     def refresh(self) -> None:
-        self.index._load_or_create_index()
+        idx = self._get_index()
+        idx._load_or_create_index()
