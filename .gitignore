@@ -89,3 +89,6 @@ htmlcov/
 
 # Local media
 *.mp4
+
+# Local documentation notes
+CODE_DOCUMENTATION.md
