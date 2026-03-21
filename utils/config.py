@@ -4,6 +4,7 @@ Reads `config.ini` and `.env` from project root and exposes `Env` and `settings`
 This replaces the previous top-level `env.py` module.
 """
 import os
+import json
 from pathlib import Path
 from configparser import ConfigParser
 from typing import Any
@@ -23,6 +24,8 @@ class Env:
         if env_file.exists():
             self._load_env_file(env_file)
 
+        self._load_aws_secrets()
+
     def _load_env_file(self, env_file: Path) -> None:
         with open(env_file, 'r', encoding='utf-8') as f:
             for line in f:
@@ -30,6 +33,49 @@ class Env:
                 if line and not line.startswith('#') and '=' in line:
                     key, value = line.split('=', 1)
                     os.environ[key.strip()] = value.strip()
+
+    def _fetch_aws_secret_dict(self, *, region: str, secret_name: str) -> dict[str, Any]:
+        if not secret_name:
+            return {}
+        try:
+            import boto3
+            client = boto3.client("secretsmanager", region_name=region)
+            response = client.get_secret_value(SecretId=secret_name)
+            secret_text = response.get("SecretString", "")
+            if not secret_text:
+                return {}
+            data = json.loads(secret_text)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _load_aws_secrets(self) -> None:
+        region = os.environ.get("AWS_REGION") or self.config.get('aws', 'region', fallback='us-east-1')
+        groq_secret_name = self.config.get('aws', 'groq_secret_name', fallback='').strip()
+        langsmith_secret_name = self.config.get('aws', 'langsmith_secret_name', fallback='').strip()
+
+        if groq_secret_name:
+            groq_secret = self._fetch_aws_secret_dict(region=region, secret_name=groq_secret_name)
+            primary = (
+                groq_secret.get("api_key_primary")
+                or groq_secret.get("GROQ_API_KEY")
+                or groq_secret.get("api_key")
+            )
+            secondary = groq_secret.get("api_key_secondary") or groq_secret.get("GROQ_API_KEY_B")
+            tertiary = groq_secret.get("api_key_tertiary") or groq_secret.get("GROQ_API_KEY_C")
+
+            if primary:
+                os.environ["GROQ_API_KEY"] = str(primary)
+            if secondary:
+                os.environ["GROQ_API_KEY_B"] = str(secondary)
+            if tertiary:
+                os.environ["GROQ_API_KEY_C"] = str(tertiary)
+
+        if langsmith_secret_name:
+            langsmith_secret = self._fetch_aws_secret_dict(region=region, secret_name=langsmith_secret_name)
+            api_key = langsmith_secret.get("api_key") or langsmith_secret.get("LANGSMITH_API_KEY")
+            if api_key:
+                os.environ["LANGSMITH_API_KEY"] = str(api_key)
 
     def get(self, section: str, key: str, fallback: Any = None) -> Any:
         value = self.config.get(section, key, fallback=fallback)
@@ -240,8 +286,36 @@ class Env:
         return self.get('stack', 'storage_provider', 'local_fs')
 
     @property
+    def STACK_CACHE_PROVIDER(self) -> str:
+        return self.get('stack', 'cache_provider', 'local')
+
+    @property
     def STACK_OBSERVABILITY_PROVIDER(self) -> str:
         return self.get('stack', 'observability_provider', 'local_logs')
+
+    @property
+    def AWS_S3_BUCKET(self) -> str:
+        return self.get('aws', 's3_bucket', '')
+
+    @property
+    def AWS_REDIS_ENDPOINT(self) -> str:
+        return self.get('aws', 'redis_endpoint', '')
+
+    @property
+    def AWS_OPENSEARCH_ENDPOINT(self) -> str:
+        return self.get('aws', 'opensearch_endpoint', '')
+
+    @property
+    def AWS_TEXTRACT_ENABLED(self) -> bool:
+        return self.getboolean('aws', 'textract_enabled', False)
+
+    @property
+    def AWS_GROQ_SECRET_NAME(self) -> str:
+        return self.get('aws', 'groq_secret_name', '')
+
+    @property
+    def AWS_LANGSMITH_SECRET_NAME(self) -> str:
+        return self.get('aws', 'langsmith_secret_name', '')
 
     # LangSmith Observability
     @property

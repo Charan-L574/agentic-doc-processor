@@ -22,6 +22,7 @@ class ObservabilityClient:
         self.enabled = settings.LANGSMITH_ENABLED
         self.project = settings.LANGSMITH_PROJECT
         self.client = None
+        self._auth_disabled = False
 
         if not self.enabled:
             logger.info("Observability: LangSmith disabled")
@@ -45,6 +46,16 @@ class ObservabilityClient:
         except Exception as e:
             logger.warning(f"Observability: LangSmith init failed, fallback to local logs: {e}")
             self.client = None
+
+    def _handle_runtime_error(self, error: Exception, stage: str) -> None:
+        message = str(error)
+        is_auth_error = "403" in message or "401" in message or "Forbidden" in message or "Unauthorized" in message
+        if is_auth_error and self.client is not None:
+            self.client = None
+            self._auth_disabled = True
+            logger.warning(
+                f"Observability: disabling LangSmith after auth failure during {stage}; falling back to local logs"
+            )
 
     @property
     def is_active(self) -> bool:
@@ -82,6 +93,7 @@ class ObservabilityClient:
             return run_id
         except Exception as e:
             logger.warning(f"Observability: start_run failed ({name}): {e}")
+            self._handle_runtime_error(e, "start_run")
             return run_id
 
     def end_run(
@@ -112,6 +124,7 @@ class ObservabilityClient:
             self.client.update_run(**update_kwargs)
         except Exception as e:
             logger.warning(f"Observability: end_run failed ({run_id}): {e}")
+            self._handle_runtime_error(e, "end_run")
 
 
 _observer: Optional[ObservabilityClient] = None

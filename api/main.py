@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import boto3
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
@@ -19,6 +20,7 @@ from utils.logger import logger
 from utils.graph_visualizer import graph_visualizer
 from utils.knowledge_lookup import get_knowledge_lookup
 from utils.observability import get_observer
+from utils.service_registry import ServiceRegistry
 from schemas.document_schemas import ProcessingResult
 
 
@@ -223,6 +225,79 @@ async def monitoring_health() -> Dict[str, Any]:
     }
 
 
+@app.get("/cloud/health", response_model=Dict[str, Any])
+async def cloud_health() -> Dict[str, Any]:
+    """Return cloud integration health for S3, Secrets Manager, and observability."""
+    region = settings.AWS_REGION
+    bucket = settings.AWS_S3_BUCKET
+    groq_secret_name = settings.AWS_GROQ_SECRET_NAME
+    langsmith_secret_name = settings.AWS_LANGSMITH_SECRET_NAME
+
+    s3_ok = False
+    s3_error = None
+    uploads_objects = 0
+
+    try:
+        s3 = boto3.client("s3", region_name=region)
+        s3.list_objects_v2(Bucket=bucket, Prefix="uploads/", MaxKeys=1)
+        s3_ok = True
+
+        uploads_resp = s3.list_objects_v2(Bucket=bucket, Prefix="uploads/", MaxKeys=1000)
+        uploads_objects = uploads_resp.get("KeyCount", 0)
+    except Exception as e:
+        s3_error = str(e)
+
+    groq_secret = settings._fetch_aws_secret_dict(region=region, secret_name=groq_secret_name)
+    langsmith_secret = settings._fetch_aws_secret_dict(region=region, secret_name=langsmith_secret_name)
+
+    groq_has_primary = bool(
+        groq_secret.get("api_key_primary")
+        or groq_secret.get("GROQ_API_KEY")
+        or groq_secret.get("api_key")
+    )
+    groq_has_secondary = bool(
+        groq_secret.get("api_key_secondary")
+        or groq_secret.get("GROQ_API_KEY_B")
+    )
+    groq_has_tertiary = bool(
+        groq_secret.get("api_key_tertiary")
+        or groq_secret.get("GROQ_API_KEY_C")
+    )
+    langsmith_has_key = bool(
+        langsmith_secret.get("api_key")
+        or langsmith_secret.get("LANGSMITH_API_KEY")
+    )
+
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "region": region,
+        "storage_provider": settings.STACK_STORAGE_PROVIDER,
+        "ocr_provider": settings.STACK_OCR_PROVIDER,
+        "s3": {
+            "bucket": bucket,
+            "ok": s3_ok,
+            "uploads_object_count": uploads_objects,
+            "error": s3_error,
+        },
+        "secrets": {
+            "groq_secret_name": groq_secret_name,
+            "groq_fetched": bool(groq_secret),
+            "groq_has_primary": groq_has_primary,
+            "groq_has_secondary": groq_has_secondary,
+            "groq_has_tertiary": groq_has_tertiary,
+            "langsmith_secret_name": langsmith_secret_name,
+            "langsmith_fetched": bool(langsmith_secret),
+            "langsmith_has_api_key": langsmith_has_key,
+        },
+        "langsmith": {
+            "enabled": settings.LANGSMITH_ENABLED,
+            "request_traces": settings.LANGSMITH_REQUEST_TRACES,
+            "active_client": observer.is_active,
+            "project": settings.LANGSMITH_PROJECT,
+        },
+    }
+
+
 @app.post("/monitoring/langsmith/test", response_model=Dict[str, Any])
 async def monitoring_langsmith_test() -> Dict[str, Any]:
     """Force-create a monitoring trace in LangSmith for verification."""
@@ -418,6 +493,7 @@ async def upload_and_process(
     """
     try:
         logger.info(f"API: Uploading file: {file.filename}")
+        storage = ServiceRegistry.get_storage()
         
         # Save uploaded file temporarily
         temp_dir = settings.DATA_DIR / "uploads"
@@ -430,8 +506,22 @@ async def upload_and_process(
         contents = await file.read()
         with open(temp_file_path, 'wb') as f:
             f.write(contents)
+
+        # Persist uploaded bytes using configured storage backend (S3/local).
+        # Processing still uses local temp path to minimize workflow changes.
+        storage_key = f"uploads/{timestamp}_{file.filename}"
+        storage_uri = storage.put_file(
+            key=storage_key,
+            data=contents,
+            content_type=file.content_type,
+        )
         
-        logger.info(f"API: File saved to {temp_file_path}")
+        logger.info(
+            "API: File saved",
+            temp_file_path=str(temp_file_path),
+            storage_uri=storage_uri,
+            storage_provider=settings.STACK_STORAGE_PROVIDER,
+        )
         
         # Process document
         request = ProcessRequest(file_path=str(temp_file_path))
@@ -747,6 +837,29 @@ def _serialize_trace(trace_log: list) -> List[Dict[str, Any]]:
     return out
 
 
+def _persist_source_file_to_storage(file_path: Path, *, category: str = "uploads") -> Optional[str]:
+    """Persist a source document to configured storage backend (S3/local)."""
+    try:
+        storage = ServiceRegistry.get_storage()
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        storage_prefix = (category or "uploads").strip("/")
+        if not storage_prefix:
+            storage_prefix = "uploads"
+        storage_key = f"{storage_prefix}/{timestamp}_{file_path.name}"
+        content = file_path.read_bytes()
+        return storage.put_file(key=storage_key, data=content)
+    except Exception as exc:
+        logger.warning(
+            "API: Failed to persist source file to storage",
+            file_path=str(file_path),
+            storage_provider=settings.STACK_STORAGE_PROVIDER,
+            error=str(exc),
+        )
+        if settings.STACK_STORAGE_PROVIDER.lower().strip() in {"s3", "aws_s3"}:
+            raise
+        return None
+
+
 def _build_process_response_from_state(
     final_state: Dict[str, Any],
     start_time: datetime,
@@ -874,6 +987,14 @@ async def start_document_processing(request: StartProcessingRequest):
         file_path = settings.PROJECT_ROOT / file_path
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+
+        storage_uri = _persist_source_file_to_storage(file_path, category="uploads")
+        if storage_uri:
+            logger.info("API: Source file persisted", storage_uri=storage_uri)
+
+    storage_uri = _persist_source_file_to_storage(file_path, category="uploads")
+    if storage_uri:
+        logger.info("API: HITL source file persisted", storage_uri=storage_uri)
 
     thread_id = request.thread_id or f"hitl_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
 
@@ -1030,6 +1151,10 @@ async def auto_process_document(request: AutoProcessRequest):
     if not file_path.exists():
         observer.end_run(obs_run_id, error=f"file_not_found:{request.file_path}")
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+
+    storage_uri = _persist_source_file_to_storage(file_path, category="uploads")
+    if storage_uri:
+        logger.info("API: Auto source file persisted", storage_uri=storage_uri)
 
     thread_id = request.thread_id or f"auto_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
     preferred_mode = (request.preferred_mode or "auto").strip().lower()

@@ -12,6 +12,7 @@ from graph.state import DocumentState
 from schemas.document_schemas import MetricsReport, ResponsibleAILog
 from utils.config import settings
 from utils.logger import logger
+from utils.service_registry import ServiceRegistry
 
 
 class ReporterAgent:
@@ -26,7 +27,22 @@ class ReporterAgent:
     
     def __init__(self):
         self.name = "ReporterAgent"
+        self.storage = None
+        try:
+            self.storage = ServiceRegistry.get_storage()
+        except Exception as e:
+            logger.warning(f"{self.name}: Storage initialization failed: {e}")
         logger.info(f"{self.name} initialized")
+
+    def _persist_to_storage(self, key: str, data: bytes, content_type: str) -> None:
+        """Persist bytes to configured storage backend when available."""
+        if not self.storage:
+            return
+        try:
+            uri = self.storage.put_file(key=key, data=data, content_type=content_type)
+            logger.info(f"{self.name}: Report persisted to storage: {uri}")
+        except Exception as e:
+            logger.warning(f"{self.name}: Failed to persist {key} to storage: {e}")
     
     def _compute_extraction_accuracy(
         self,
@@ -184,6 +200,13 @@ class ReporterAgent:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(report_data, f, indent=2, default=str)
             logger.info(f"JSON report saved: {filepath}")
+
+            payload = json.dumps(report_data, indent=2, default=str).encode('utf-8')
+            self._persist_to_storage(
+                key=f"reports/{filename}",
+                data=payload,
+                content_type="application/json",
+            )
         except Exception as e:
             logger.error(f"Failed to save JSON report: {e}")
     
@@ -222,6 +245,13 @@ class ReporterAgent:
                     writer.writerow(row)
             
             logger.info(f"CSV report saved: {filepath}")
+
+            csv_bytes = filepath.read_bytes()
+            self._persist_to_storage(
+                key=f"reports/{filename}",
+                data=csv_bytes,
+                content_type="text/csv",
+            )
         except Exception as e:
             logger.error(f"Failed to save CSV report: {e}")
     
@@ -419,6 +449,27 @@ class ReporterAgent:
             self._save_json_report(
                 complete_report,
                 f"metrics_report_{doc_name}_{timestamp_str}.json"
+            )
+
+            artifact_data = {
+                "document": state["file_path"],
+                "doc_type": state["doc_type"].value if state.get("doc_type") else "unknown",
+                "timestamp": datetime.utcnow().isoformat(),
+                "success": metrics_summary["workflow_success"],
+                "metrics": metrics_report.model_dump(),
+                "extracted_fields": state.get("extracted_fields", {}),
+                "errors": state.get("errors", []),
+            }
+            artifact_filename = f"processing_artifact_{doc_name}_{timestamp_str}.json"
+            artifacts_dir = settings.DATA_DIR / "artifacts"
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+            artifact_path = artifacts_dir / artifact_filename
+            with open(artifact_path, "w", encoding="utf-8") as f:
+                json.dump(artifact_data, f, indent=2, default=str)
+            self._persist_to_storage(
+                key=f"artifacts/{artifact_filename}",
+                data=json.dumps(artifact_data, indent=2, default=str).encode("utf-8"),
+                content_type="application/json",
             )
             
             latency = time.time() - start_time

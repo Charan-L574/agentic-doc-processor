@@ -92,3 +92,10 @@ htmlcov/
 
 # Local documentation notes
 CODE_DOCUMENTATION.md
+
+# Local keys and diagnostics
+Keys/
+_cloud_health_probe.py
+
+# Local generated artifacts
+data/artifacts/

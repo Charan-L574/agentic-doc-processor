@@ -25,6 +25,10 @@ huggingface_hub
 # Vector Store
 faiss-cpu
 sentence-transformers
+opensearch-py
+
+# Cloud Cache
+redis
 
 # Document Loading (LangChain)
 # Unstructured library for various document formats
