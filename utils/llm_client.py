@@ -40,6 +40,7 @@ class LLMClient:
     """
 
     def __init__(self):
+        self.stack_provider = settings.STACK_LLM_PROVIDER.strip().lower()
         self.cache_enabled = settings.LLM_CACHE_ENABLED
         self.cache_ttl_seconds = settings.LLM_CACHE_TTL_SECONDS
         self.cache_max_entries = settings.LLM_CACHE_MAX_ENTRIES
@@ -62,10 +63,18 @@ class LLMClient:
         self._initialize_groq()
         self._initialize_groq_b()
         self._initialize_groq_c()
-        self._initialize_bedrock()
-        self._initialize_huggingface()
-        self._initialize_ollama()
-        self._initialize_llama()
+
+        if self.stack_provider != LLMProvider.GROQ.value:
+            self._initialize_bedrock()
+            self._initialize_huggingface()
+            self._initialize_ollama()
+            self._initialize_llama()
+        else:
+            logger.info(
+                "Groq-only stack provider configured; "
+                "skipping Bedrock/HuggingFace/Ollama/Local Llama initialization"
+            )
+
         self._initialize_cache()
 
     def _initialize_cache(self) -> None:
