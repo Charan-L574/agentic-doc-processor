@@ -4,8 +4,6 @@ from adapters.faiss_vector_store import FAISSVectorStoreAdapter
 from adapters.local_cache import LocalCacheAdapter
 from adapters.local_ocr import LocalOCRAdapter
 from adapters.local_storage import LocalStorageAdapter
-from adapters.opensearch_vector_store import OpenSearchVectorStoreAdapter
-from adapters.redis_cache import RedisCacheAdapter
 from adapters.s3_storage import S3StorageAdapter
 from adapters.textract_ocr import TextractOCRAdapter
 from services.cache_service import CacheService
@@ -44,12 +42,30 @@ class ServiceRegistry:
     def get_cache() -> CacheService:
         provider = settings.STACK_CACHE_PROVIDER.lower().strip()
         if provider in {"redis", "elasticache"}:
-            return RedisCacheAdapter()
+            try:
+                from adapters.redis_cache import RedisCacheAdapter
+
+                return RedisCacheAdapter()
+            except Exception as e:
+                logger.warning(
+                    "ServiceRegistry: Redis unavailable, falling back to LocalCacheAdapter",
+                    error=str(e),
+                )
+                return LocalCacheAdapter()
         return LocalCacheAdapter()
 
     @staticmethod
     def get_vector_store() -> VectorStoreService:
         provider = settings.STACK_VECTOR_PROVIDER.lower().strip()
         if provider in {"opensearch", "aws_opensearch"}:
-            return OpenSearchVectorStoreAdapter()
+            try:
+                from adapters.opensearch_vector_store import OpenSearchVectorStoreAdapter
+
+                return OpenSearchVectorStoreAdapter()
+            except Exception as e:
+                logger.warning(
+                    "ServiceRegistry: OpenSearch unavailable, falling back to FAISSVectorStoreAdapter",
+                    error=str(e),
+                )
+                return FAISSVectorStoreAdapter()
         return FAISSVectorStoreAdapter()

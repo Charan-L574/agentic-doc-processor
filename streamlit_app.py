@@ -101,22 +101,6 @@ def trigger_langsmith_monitoring_test():
         return {"error": str(e)}
 
 
-def process_document(file_path: str):
-    """Process document via API"""
-    try:
-        response = requests.post(
-            f"{API_BASE_URL}/process",
-            json={"file_path": file_path},
-            timeout=900  # 15 minutes for local GPU processing
-        )
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"error": f"API Error: {response.status_code}", "details": response.text}
-    except Exception as e:
-        return {"error": str(e)}
-
-
 def get_workflow_diagram():
     """Get workflow diagram from API"""
     try:
@@ -610,21 +594,6 @@ def get_execution_path_diagram(trace_log):
         return None
 
 
-def get_execution_trace(trace_log):
-    """Get execution trace sequence diagram from API"""
-    try:
-        response = requests.post(
-            f"{API_BASE_URL}/visualize/trace",
-            json=trace_log,
-            timeout=10
-        )
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except:
-        return None
-
-
 def display_execution_visualizations(result):
     """Display execution visualizations for the document processing pipeline"""
     if not result or 'trace_log' not in result:
@@ -1045,131 +1014,6 @@ def display_detailed_metrics(metrics, result):
                     "Latency (ms)": list(agent_latencies.values())
                 })
                 st.bar_chart(df_latency.set_index("Agent"))
-    
-
-
-
-def display_feature_checklist():
-    """Display comprehensive feature checklist"""
-    st.markdown("## ✨ Feature Checklist")
-    
-    st.info("""
-    **System Capabilities**: This checklist shows all implemented features and capabilities
-    of the Agentic AI Document Processor.
-    """)
-    
-    features = {
-        "🏗️ Core Architecture": [
-            "LangGraph workflow orchestration",
-            "6-agent pipeline (Classifier → Extractor → Validator → Self-Repair → Redactor → Reporter)",
-            "Stateful processing with StateGraph",
-            "Conditional routing (validation → repair loop)",
-            "Memory persistence with MemorySaver"
-        ],
-        "🤖 LLM Integration": [
-            "Amazon Bedrock Claude 3 Haiku (primary)",
-            "Local Llama 3.1 8B fallback",
-            "Automatic LLM switching on timeout",
-            "Retry mechanism with exponential backoff",
-            "Token usage tracking",
-            "Model performance monitoring"
-        ],
-        "📄 Document Processing": [
-            "8 document types supported (invoice, receipt, contract, medical, tax, identity, purchase order, bill of lading)",
-            "PDF text extraction",
-            "Image OCR with Tesseract",
-            "Text file processing",
-            "Document classification with confidence scoring",
-            "Field extraction with FAISS semantic search"
-        ],
-        "✅ Validation & Repair": [
-            "LLM-based validation (natural language rules)",
-            "Schema validation with Pydantic",
-            "Business rule validation",
-            "Automatic self-repair on validation errors",
-            "Maximum 2 repair attempts",
-            "Validation error tracking"
-        ],
-        "🔒 Privacy & Security": [
-            "PII detection (8 types: email, phone, SSN, credit card, address, DOB, name, account number)",
-            "LLM-based PII detection (no external NER dependency)",
-            "Automatic PII redaction with [REDACTED] masking",
-            "PII metrics (recall, precision, F1 score)",
-            "Responsible AI logging for transparency"
-        ],
-        "📊 Metrics & Reporting": [
-            "Extraction accuracy tracking",
-            "PII detection metrics",
-            "Processing time measurement",
-            "Success rate monitoring",
-            "Per-agent latency tracking",
-            "Token usage reporting",
-            "Threshold compliance validation",
-            "JSON and CSV export"
-        ],
-        "🔧 Production Features": [
-            "FastAPI REST API with async processing",
-            "Health check endpoint",
-            "CORS support",
-            "Error handling with detailed messages",
-            "Timeout protection (60s default)",
-            "Background task processing",
-            "Logging with structured output"
-        ],
-        "🎨 User Interface": [
-            "Streamlit web interface",
-            "File upload support",
-            "Sample document testing",
-            "Real-time processing status",
-            "Step-by-step pipeline visualization",
-            "Responsible AI logs viewer",
-            "Detailed metrics dashboard",
-            "Workflow diagram viewer",
-            "JSON and CSV download"
-        ],
-        "🧪 Testing & Quality": [
-            "Comprehensive unit test suite (18 tests)",
-            "Happy path testing",
-            "Missing fields testing",
-            "OCR noise handling tests",
-            "Bedrock timeout/fallback tests",
-            "Synthetic sample tests",
-            "Mock-based testing for LLM timeouts"
-        ],
-        "📚 Documentation": [
-            "Flowise integration guide",
-            "Testing documentation",
-            "Refactoring summary",
-            "API documentation (Swagger/OpenAPI)",
-            "README with setup instructions",
-            "Architecture diagrams"
-        ]
-    }
-    
-    # Display checklist by category
-    for category, items in features.items():
-        with st.expander(f"{category} ({len(items)} features)", expanded=True):
-            for item in items:
-                st.markdown(f"✅ {item}")
-    
-    # Feature summary
-    total_features = sum(len(items) for items in features.values())
-    st.markdown("---")
-    st.success(f"✅ **Total Features Implemented**: {total_features}")
-    
-    # Performance targets
-    st.markdown("### 🎯 Performance Targets")
-    
-    targets = {
-        "Extraction Accuracy": "≥ 90%",
-        "PII Detection Recall": "≥ 95%",
-        "PII Detection Precision": "≥ 90%",
-        "Success Rate": "≥ 90%",
-        "Processing Time": "< 30 seconds per document"
-    }
-    
-    for target_name, target_value in targets.items():
-        st.markdown(f"- **{target_name}**: {target_value}")
 
 
 def main():

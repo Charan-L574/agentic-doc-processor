@@ -80,6 +80,7 @@ class RedactorAgent:
 
         try:
             from presidio_analyzer import PatternRecognizer, Pattern, RecognizerRegistry
+            from presidio_analyzer.nlp_engine import NlpEngineProvider
 
             # ── Registry: English-only (content is always English) ──
             all_languages = ["en"]
@@ -152,9 +153,18 @@ class RedactorAgent:
                 context=["ifsc", "ifsc code", "bank code", "neft", "rtgs"],
             ))
 
+            nlp_provider = NlpEngineProvider(
+                nlp_configuration={
+                    "nlp_engine_name": "spacy",
+                    "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+                }
+            )
+            nlp_engine = nlp_provider.create_engine()
+
             self.analyzer = AnalyzerEngine(
                 registry=registry,
                 supported_languages=all_languages,
+                nlp_engine=nlp_engine,
             )
             self.anonymizer = AnonymizerEngine()
             logger.info(
