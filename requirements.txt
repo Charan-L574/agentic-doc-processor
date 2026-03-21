@@ -68,7 +68,8 @@ pytest-cov
 httpx
 
 # Utilities
-python-magic-bin  # Windows file type detection
+python-magic-bin; platform_system == "Windows"  # Windows file type detection
+python-magic; platform_system != "Windows"      # Linux/macOS file type detection
 tiktoken  # Token counting
 pandas
 jsonschema
