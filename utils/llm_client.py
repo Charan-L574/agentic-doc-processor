@@ -1201,7 +1201,12 @@ class LLMClient:
             RuntimeError if all providers fail
         """
         effective_force_provider = force_provider
-        if settings.BEDROCK_ONLY_MODE and force_provider is None:
+        stack_provider = settings.STACK_LLM_PROVIDER.strip().lower()
+
+        if stack_provider == LLMProvider.GROQ.value:
+            effective_force_provider = LLMProvider.GROQ
+
+        if settings.BEDROCK_ONLY_MODE and force_provider is None and stack_provider != LLMProvider.GROQ.value:
             if settings.BEDROCK_ONLY_PROVIDER == "claude":
                 effective_force_provider = LLMProvider.BEDROCK_CLAUDE
             else:
@@ -1361,7 +1366,13 @@ class LLMClient:
         Returns:
             True if provider is available
         """
-        if provider == LLMProvider.BEDROCK_CLAUDE:
+        if provider == LLMProvider.GROQ:
+            return (
+                self.groq_client is not None
+                or self.groq_client_b is not None
+                or self.groq_client_c is not None
+            )
+        elif provider == LLMProvider.BEDROCK_CLAUDE:
             return self.bedrock_client is not None
         elif provider == LLMProvider.HUGGINGFACE:
             return self.huggingface_client is not None
@@ -1371,6 +1382,10 @@ class LLMClient:
             return self.llama_client is not None
         else:
             return (
+                self.groq_client is not None
+                or self.groq_client_b is not None
+                or self.groq_client_c is not None
+                or
                 self.bedrock_client is not None
                 or self.huggingface_client is not None
                 or self.ollama_client is not None
@@ -1406,7 +1421,9 @@ class LLMClient:
         Returns:
             Model name string
         """
-        if self.bedrock_client:
+        if self.groq_client or self.groq_client_b or self.groq_client_c:
+            return f"{settings.GROQ_MODEL} (Groq)"
+        elif self.bedrock_client:
             return "claude-3-haiku (Bedrock)"
         elif self.huggingface_client:
             return f"{settings.HF_MODEL.split('/')[-1]} (HuggingFace)"
