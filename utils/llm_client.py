@@ -40,6 +40,7 @@ class LLMClient:
     """
 
     def __init__(self):
+        self.stack_profile = settings.STACK_PROFILE.strip().lower()
         self.stack_provider = settings.STACK_LLM_PROVIDER.strip().lower()
         self.skip_hf = settings.SKIP_HF
         self.cache_enabled = settings.LLM_CACHE_ENABLED
@@ -65,7 +66,13 @@ class LLMClient:
         self._initialize_groq_b()
         self._initialize_groq_c()
 
-        if self.stack_provider != LLMProvider.GROQ.value:
+        if self.stack_profile == "cloud":
+            self._initialize_bedrock()
+            logger.info(
+                "Cloud profile configured; using Groq + Bedrock only "
+                "(HuggingFace/Ollama/Local Llama disabled)"
+            )
+        elif self.stack_provider != LLMProvider.GROQ.value:
             self._initialize_bedrock()
             if not self.skip_hf:
                 self._initialize_huggingface()
@@ -75,9 +82,16 @@ class LLMClient:
             self._initialize_llama()
         else:
             logger.info(
-                "Groq-only stack provider configured; "
-                "skipping Bedrock/HuggingFace/Ollama/Local Llama initialization"
+                "Local profile + Groq primary configured; "
+                "enabling Bedrock/HuggingFace/Ollama/Local Llama as fallbacks"
             )
+            self._initialize_bedrock()
+            if not self.skip_hf:
+                self._initialize_huggingface()
+            else:
+                logger.info("SKIP_HF enabled: skipping HuggingFace client initialization")
+            self._initialize_ollama()
+            self._initialize_llama()
 
         self._initialize_cache()
 
@@ -1216,8 +1230,7 @@ class LLMClient:
         effective_force_provider = force_provider
         stack_provider = settings.STACK_LLM_PROVIDER.strip().lower()
 
-        if stack_provider == LLMProvider.GROQ.value:
-            effective_force_provider = LLMProvider.GROQ
+        cloud_profile = settings.STACK_PROFILE.strip().lower() == "cloud"
 
         if settings.BEDROCK_ONLY_MODE and force_provider is None and stack_provider != LLMProvider.GROQ.value:
             if settings.BEDROCK_ONLY_PROVIDER == "claude":
@@ -1342,6 +1355,10 @@ class LLMClient:
         else:
             logger.debug("Bedrock client not available, skipping")
         
+        if cloud_profile:
+            logger.error("Cloud profile provider set exhausted (Groq + Bedrock only)")
+            raise RuntimeError(f"Cloud providers failed (Groq/Bedrock): {'; '.join(errors)}")
+
         # Fallback to HuggingFace
         if self.skip_hf:
             logger.info("SKIP_HF enabled: skipping HuggingFace fallback")
