@@ -164,23 +164,26 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to compile workflows via SupervisorAgent: {e}")
 
-    # Warm up Presidio NLP engine (spaCy loads lazily on first .analyze() call — 2-3s)
-    # Running a dummy call here means zero extra latency on the first real document.
-    try:
-        from agents.redactor_agent import redactor_agent
-        if redactor_agent.analyzer:
-            redactor_agent.analyzer.analyze(text="warmup", language="en")
-            logger.info("Presidio NLP engine warmed up successfully")
-    except Exception as e:
-        logger.warning(f"Presidio warm-up failed (non-fatal): {e}")
+    if settings.STARTUP_WARMUP_ENABLED:
+        # Warm up Presidio NLP engine (spaCy loads lazily on first .analyze() call — 2-3s)
+        # Running a dummy call here means zero extra latency on the first real document.
+        try:
+            from agents.redactor_agent import redactor_agent
+            if redactor_agent.analyzer:
+                redactor_agent.analyzer.analyze(text="warmup", language="en")
+                logger.info("Presidio NLP engine warmed up successfully")
+        except Exception as e:
+            logger.warning(f"Presidio warm-up failed (non-fatal): {e}")
 
-    # Warm up FAISS + SentenceTransformer so embedding model loads at startup,
-    # not on first validator/knowledge lookup call.
-    try:
-        get_knowledge_lookup()
-        logger.info("Knowledge lookup (FAISS + SentenceTransformer) warmed up successfully")
-    except Exception as e:
-        logger.warning(f"Knowledge lookup warm-up failed (non-fatal): {e}")
+        # Warm up FAISS + embedding path so model/state loads at startup,
+        # not on first validator/knowledge lookup call.
+        try:
+            get_knowledge_lookup()
+            logger.info("Knowledge lookup warmed up successfully")
+        except Exception as e:
+            logger.warning(f"Knowledge lookup warm-up failed (non-fatal): {e}")
+    else:
+        logger.info("Startup warm-up disabled by configuration")
 
 
 @app.on_event("shutdown")

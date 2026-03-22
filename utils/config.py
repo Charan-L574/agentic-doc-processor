@@ -362,6 +362,13 @@ class Env:
             return env_val.strip().lower() in {"1", "true", "yes", "on"}
         return self.getboolean('runtime', 'skip_hf', False)
 
+    @property
+    def STARTUP_WARMUP_ENABLED(self) -> bool:
+        env_val = os.environ.get('STARTUP_WARMUP_ENABLED')
+        if env_val is not None:
+            return env_val.strip().lower() in {"1", "true", "yes", "on"}
+        return self.getboolean('runtime', 'startup_warmup_enabled', True)
+
     # Metrics
     @property
     def MIN_EXTRACTION_ACCURACY(self) -> float:
