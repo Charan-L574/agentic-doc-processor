@@ -10,7 +10,10 @@ from typing import List, Dict, Any, Optional
 
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception:
+    SentenceTransformer = None
 
 from utils.config import settings
 from utils.logger import logger
@@ -47,6 +50,11 @@ class FAISSIndex:
             self.dimension = 384
             logger.info("SKIP_HF enabled: using local hash embeddings for FAISS (no HuggingFace downloads)")
         else:
+            if SentenceTransformer is None:
+                raise RuntimeError(
+                    "sentence-transformers is required when SKIP_HF is false. "
+                    "Install sentence-transformers or set [runtime].skip_hf = true"
+                )
             try:
                 self.encoder = SentenceTransformer(model_name)
                 self.dimension = self.encoder.get_sentence_embedding_dimension()
