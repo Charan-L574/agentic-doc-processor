@@ -1,9 +1,0 @@
-agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
-ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:06:46.000,437.82746390155273,1175,330,382,False,,0,"--- Document: aca006_india_be_marksheet.txt ---
-Co","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
-ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:06:46.437,775.9069688442557,1140,841,198,False,,0,"--- Document: aca006_india_be_marksheet.txt ---
-Co","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
-ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:06:47.213,411.37155086447706,866,1041,248,False,,0,"--- Document: aca006_india_be_marksheet.txt ---
-Co","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
-RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:06:47.625,1489.6550644625304,606,639,242,False,,0,"--- Document: aca006_india_be_marksheet.txt ---
-Co","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

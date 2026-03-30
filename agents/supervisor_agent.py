@@ -21,8 +21,7 @@ classify
 """
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Literal
-from typing import Dict, Any, List, Literal, Callable, Optional
+from typing import Dict, Any, List, Literal, Optional
 
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
@@ -51,11 +50,8 @@ class SupervisorAgent:
 
     ACCURACY_THRESHOLD = 0.80
 
-    def __init__(self, standard_workflow=None, hitl_workflow=None,
-                 config: GraphConfig = None):
+    def __init__(self, config: GraphConfig = None):
         self.name = "SupervisorAgent"
-        # standard_workflow kept for the non-interrupt /process endpoint
-        self.standard_workflow = standard_workflow
         self.config = config or GraphConfig(
             max_repair_attempts=1,
             enable_responsible_ai_logging=True,
@@ -182,8 +178,11 @@ class SupervisorAgent:
 
     def _route_after_supervise_classify(
         self, state: DocumentState
-    ) -> Literal["human_review_classify"]:
-        """Classification HITL is mandatory — always route to human review."""
+    ) -> Literal["human_review_classify", "extract"]:
+        """Route to HITL in hitl mode; skip HITL in standard mode."""
+        mode = str(state.get("supervisor_mode") or "hitl_policy")
+        if mode == "standard":
+            return "extract"
         return "human_review_classify"
 
     def _route_after_hitl_classify(
@@ -198,15 +197,19 @@ class SupervisorAgent:
     def _route_after_supervise_validate(
         self, state: DocumentState
     ) -> Literal["repair", "human_review_extract", "redact"]:
-        """Route based on the supervisor's validation decision."""
+        """Route based on decision, with standard mode bypassing HITL nodes."""
         decision = state.get("supervisor_validation_decision", "auto_approved_validation")
+        mode = str(state.get("supervisor_mode") or "hitl_policy")
         mapping = {
             "self_repair_retry":            "repair",
             "hitl_extract_required":        "human_review_extract",
             "hitl_extract_custom_doc_type": "human_review_extract",
             "auto_approved_validation":     "redact",
         }
-        return mapping.get(decision, "redact")
+        next_node = mapping.get(decision, "redact")
+        if mode == "standard" and next_node == "human_review_extract":
+            return "redact"
+        return next_node
 
     def _route_after_hitl_extract(
         self, state: DocumentState
@@ -252,7 +255,10 @@ class SupervisorAgent:
         g.add_conditional_edges(
             "supervise_classification",
             self._route_after_supervise_classify,
-            {"human_review_classify": "human_review_classify"},
+            {
+                "human_review_classify": "human_review_classify",
+                "extract": "extract",
+            },
         )
 
         # Step 2: HITL #1 result → extract (approved/corrected) or report (rejected)
@@ -304,11 +310,9 @@ class SupervisorAgent:
             )
 
     def compile_workflows(self) -> None:
-        """Compile the supervisor orchestration graph and the standard workflow."""
+        """Compile the supervisor orchestration graph."""
         self._ensure_compiled()
-        if self.standard_workflow:
-            self.standard_workflow.compile()
-        logger.info(f"{self.name}: All workflows compiled")
+        logger.info(f"{self.name}: Workflow compiled")
 
     def get_graph_mermaid(self) -> str:
         """
@@ -358,11 +362,17 @@ class SupervisorAgent:
 
     # ── State initialization ───────────────────────────────────────────────────
 
-    def _initialize_state(self, file_path: str, raw_text: str) -> DocumentState:
+    def _initialize_state(
+        self,
+        file_path: str,
+        raw_text: str,
+        ground_truth_pii: Optional[list[Dict[str, Any]]] = None,
+        supervisor_mode: str = "hitl_policy",
+    ) -> DocumentState:
         return DocumentState(
             file_path=file_path,
             raw_text=raw_text,
-            ground_truth_pii=None,
+            ground_truth_pii=ground_truth_pii,
             doc_type=None,
             classification_result=None,
             extracted_fields=None,
@@ -387,7 +397,7 @@ class SupervisorAgent:
             hitl_resolution=None,
             hitl_corrections=None,
             custom_doc_type=None,
-            supervisor_mode="hitl_policy",
+            supervisor_mode=supervisor_mode,
             supervisor_classification_confidence=0.0,
             supervisor_classification_decision=None,
             supervisor_classification_reason=None,
@@ -437,11 +447,33 @@ class SupervisorAgent:
         ground_truth_pii: Optional[list[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
-        Run standard end-to-end processing without HITL interrupts.
-        Used by the /process endpoint for non-interactive batch processing.
+        Run standard end-to-end processing using the supervisor graph in standard mode.
+
+        In standard mode, HITL nodes are bypassed by routing policy and the
+        graph runs to completion in one pass.
         """
-        logger.info(f"{self.name}: Standard processing — {Path(file_path).name}")
-        return self.standard_workflow.process_document(file_path, thread_id, ground_truth_pii=ground_truth_pii)
+        self._ensure_compiled()
+        file_path_obj = Path(file_path)
+        raw_text = document_loader.load_and_extract_text(file_path_obj)
+        if not raw_text or not raw_text.strip():
+            raise ValueError(f"No text could be extracted from {file_path_obj.name}")
+
+        initial_state = self._initialize_state(
+            str(file_path_obj),
+            raw_text,
+            ground_truth_pii=ground_truth_pii,
+            supervisor_mode="standard",
+        )
+        config = {"configurable": {"thread_id": thread_id}}
+
+        logger.info(
+            f"{self.name}: Standard processing (single-graph) — "
+            f"thread={thread_id}, file={file_path_obj.name}"
+        )
+        result = self._run_until_pause(initial_state, config)
+        if result.get("status") != "complete":
+            raise RuntimeError("Standard mode unexpectedly paused for HITL review")
+        return result.get("final_state", {})
 
     def start_processing(self, file_path: str, thread_id: str) -> Dict[str, Any]:
         """
@@ -456,7 +488,11 @@ class SupervisorAgent:
         if not raw_text or not raw_text.strip():
             raise ValueError(f"No text could be extracted from {file_path_obj.name}")
 
-        initial_state = self._initialize_state(str(file_path_obj), raw_text)
+        initial_state = self._initialize_state(
+            str(file_path_obj),
+            raw_text,
+            supervisor_mode="hitl_policy",
+        )
         config = {"configurable": {"thread_id": thread_id}}
 
         logger.info(

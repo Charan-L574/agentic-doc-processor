@@ -1,9 +1,0 @@
-agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
-ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:09:34.000,506.057144074358,1773,451,286,False,,0,"--- Document: med004_pneumonia_visit.txt ---
-Conte","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
-ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:09:34.506,858.7784397749922,1076,888,260,False,,0,"--- Document: med004_pneumonia_visit.txt ---
-Conte","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
-ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:09:35.364,399.0162428796633,1015,769,258,False,,0,"--- Document: med004_pneumonia_visit.txt ---
-Conte","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
-RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:09:35.763,1266.8250328740107,1005,817,165,False,,0,"--- Document: med004_pneumonia_visit.txt ---
-Conte","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

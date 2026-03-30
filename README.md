@@ -1,6 +1,6 @@
 # Agentic Document Processor
 
-A **local, production-grade agentic pipeline** that ingests any document, routes it through 6 specialised AI agents orchestrated by **LangGraph**, and produces validated JSON + redacted output with a full **Responsible AI audit trail**.
+A **local, production-grade agentic pipeline** that ingests any document, routes it through specialised agents orchestrated by **LangGraph + Supervisor policy**, and produces validated JSON + redacted output with a full **Responsible AI audit trail**.
 
 > **Prototype 2** — Classify · Extract · Validate · Self-Repair · Redact · Report
 
@@ -32,13 +32,23 @@ Document Input (PDF / DOCX / TXT / Image)
 [Classifier Agent]  ← LLM: decision-tree prompt, 600-char window
     │
     ▼
+[Supervisor Checkpoint #1]
+    │
+    ├── HITL mode: Human review classification
+    └── Standard mode: continue directly
+    │
+    ▼
 [Extractor Agent]  ← LLM: schema-driven JSON extraction, chunked
     │
     ▼
 [Validator Agent]  ← Rule-based (60+ aliases) + LLM semantic check
     │
-    ├── needs_repair=True ──► [Self-Repair Node] ──► [Validator Agent]
-    │                                                (max 1 attempt)
+    ▼
+[Supervisor Checkpoint #2]
+    │
+    ├── retry path ──► [Self-Repair Node] ──► [Validator Agent]
+    ├── HITL mode ──► [Human review extraction]
+    └── approved ──► continue
     ▼
 [Redactor Agent]  ← Presidio + custom Indian recognisers + LLM
     │
@@ -72,12 +82,13 @@ Tenacity retries each provider 3× with exponential backoff (2 s → 4 s → 8 s
 ## Features
 
 - **LangGraph stateful graph** — `DocumentState` TypedDict shared across all nodes; `MemorySaver` checkpointing for crash recovery
+- **Supervisor-owned orchestration** — one graph handles both standard and HITL routes through policy checkpoints
 - **Conditional self-repair** — fires only when extraction accuracy < 80%; max 1 attempt; merges without overwriting good values
 - **Hybrid PII redaction** — Microsoft Presidio baseline + LLM enhancement; custom regex recognisers for India Aadhaar, PAN, GSTIN, Passport, Voter ID, UPI, IFSC
 - **Universal document ingestion** — PDF (digital + scanned), DOCX, TXT, PPTX, XLSX, PNG, JPG, TIFF; Tesseract OCR fallback for image-only files
 - **5-tier LLM fallback** — Groq → Bedrock → HuggingFace → Ollama → Local Llama; zero downtime on any single provider failure
-- **Responsible AI logging** — every agent decision (input summary, output summary, LLM provider, latency, status) exported as structured CSV; meets GDPR Art. 22 explainability requirements
-- **FastAPI REST API** — `/process`, `/upload`, `/health` endpoints with Swagger UI
+- **Responsible AI logging** — every agent decision (prompts, context, output, provider, latency, tokens, status)
+- **FastAPI REST API** — standard and HITL endpoints with Swagger UI
 - **Streamlit dashboard** — upload, sample selector, tabbed results (classification, extraction, validation, redaction, metrics, trace log), JSON/CSV download
 
 ---
@@ -198,8 +209,13 @@ Swagger UI at [http://localhost:8000/docs](http://localhost:8000/docs).
 |---|---|---|
 | `GET` | `/` | Service info |
 | `GET` | `/health` | LLM provider availability |
+| `GET` | `/cloud/health` | Cloud integration health summary |
 | `POST` | `/process` | Process by file path `{"file_path": "data/samples/resume.txt"}` |
-| `POST` | `/upload` | Multipart file upload |
+| `POST` | `/upload-and-process` | Multipart upload + process |
+| `POST` | `/process/start` | Start HITL run (interrupt-capable) |
+| `POST` | `/thread/{thread_id}/resume` | Resume HITL run with human decision |
+| `POST` | `/process/auto` | Route between standard and HITL modes |
+| `GET` | `/workflow/diagram` | Mermaid workflow diagram |
 
 ---
 
@@ -221,12 +237,14 @@ agentic-doc-processor/
 │   ├── validator_agent.py      # Rule-based + LLM validation
 │   ├── self_repair_node.py     # Re-extraction / field repair
 │   ├── redactor_agent.py       # Presidio + LLM PII redaction
-│   └── reporter_agent.py       # JSON report + Responsible AI CSV
+│   ├── reporter_agent.py       # JSON report + Responsible AI CSV
+│   ├── human_review_agent.py   # LangGraph interrupt/resume HITL checkpoints
+│   └── supervisor_agent.py     # Main orchestration graph (standard + HITL)
 ├── api/
 │   └── main.py                 # FastAPI application
 ├── graph/
 │   ├── state.py                # DocumentState TypedDict
-│   └── workflow.py             # LangGraph pipeline definition
+│   └── workflow.py             # Compatibility shim + legacy standard wrapper
 ├── ocr/
 │   └── processor.py            # Tesseract OCR wrapper
 ├── schemas/
@@ -259,12 +277,20 @@ agentic-doc-processor/
 
 Every agent appends a `ResponsibleAILog` entry containing:
 
-- `agent_name`, `action`, `timestamp` (UTC)
-- `input_summary` (first 200 chars), `output_summary`
-- `llm_provider` (groq / bedrock_claude / huggingface / ollama / local_llama)
-- `latency_ms`, `status`, `error_message`
+- `agent_name`, `timestamp` (UTC), `retry_attempt`
+- `system_prompt`, `user_prompt`, `context_data`
+- `raw_output`, `output_data`, token usage (`tokens_input` / `tokens_output`)
+- `llm_provider` and `llm_model_used`
+- `latency_ms`, `error_occurred`, `error_message`
 
 Logs are exported to `reports/responsible_ai_{ts}.csv` and surfaced in the **Responsible AI** tab of the Streamlit dashboard.
+
+---
+
+## Notes
+
+- **Startup warmup**: set `runtime.startup_warmup_enabled = true` in `config.ini` to load FAISS/HF embedding models at API startup and reduce first-request latency.
+- **Storage backend**: set `stack.storage_provider = local_fs` to avoid hard dependency on S3 for local runs.
 
 ---
 

@@ -47,6 +47,7 @@ class LLMClient:
         self.cache_ttl_seconds = settings.LLM_CACHE_TTL_SECONDS
         self.cache_max_entries = settings.LLM_CACHE_MAX_ENTRIES
         self._cache_conn = None
+        self._cache_service = None
         self._cache_lock = threading.Lock()
         self.groq_client = None
         self.groq_client_b = None   # Backup Groq client (GROQ_API_KEY_B)
@@ -96,10 +97,24 @@ class LLMClient:
         self._initialize_cache()
 
     def _initialize_cache(self) -> None:
-        """Initialize local SQLite cache for LLM responses."""
+        """Initialize LLM response cache (Redis in cloud profile, SQLite in local profile)."""
         if not self.cache_enabled:
             logger.info("LLM response cache disabled")
             return
+
+        if self.stack_profile == "cloud":
+            try:
+                from utils.service_registry import ServiceRegistry
+
+                self._cache_service = ServiceRegistry.get_cache()
+                logger.info(
+                    "LLM response cache initialized via cache service "
+                    f"({type(self._cache_service).__name__}, ttl={self.cache_ttl_seconds}s)"
+                )
+                return
+            except Exception as e:
+                logger.warning(f"Failed to initialize cloud cache service, falling back to SQLite: {e}")
+                self._cache_service = None
 
         try:
             settings.CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -292,8 +307,25 @@ class LLMClient:
         return None
 
     def _cache_get(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        if not self.cache_enabled or self._cache_conn is None:
+        if not self.cache_enabled:
             return None
+
+        if self._cache_service is not None:
+            try:
+                payload = self._cache_service.get(cache_key)
+                if not payload:
+                    return None
+                cached = json.loads(payload)
+                cached["cache_hit"] = True
+                cached["latency"] = 0.0
+                return cached
+            except Exception as e:
+                logger.warning(f"Cloud cache get failed, treating as miss: {e}")
+                return None
+
+        if self._cache_conn is None:
+            return None
+
         now = time.time()
         with self._cache_lock:
             cur = self._cache_conn.cursor()
@@ -326,7 +358,7 @@ class LLMClient:
             return None
 
     def _cache_set(self, cache_key: str, response: Dict[str, Any]) -> None:
-        if not self.cache_enabled or self._cache_conn is None:
+        if not self.cache_enabled:
             return
 
         cache_payload = {
@@ -337,6 +369,21 @@ class LLMClient:
             "system_prompt": response.get("system_prompt"),
             "user_prompt": response.get("user_prompt"),
         }
+
+        if self._cache_service is not None:
+            try:
+                self._cache_service.set(
+                    cache_key,
+                    json.dumps(cache_payload, ensure_ascii=False),
+                    ttl_seconds=self.cache_ttl_seconds,
+                )
+                return
+            except Exception as e:
+                logger.warning(f"Cloud cache set failed, skipping cache write: {e}")
+                return
+
+        if self._cache_conn is None:
+            return
 
         now = time.time()
         with self._cache_lock:
@@ -522,63 +569,6 @@ class LLMClient:
         except Exception:
             self.ollama_client = None
             logger.info("Ollama server not reachable (start with: ollama serve)")
-
-    def _invoke_ollama(
-        self,
-        prompt: str,
-        system_prompt: str = None,
-        max_tokens: int = None,
-        temperature: float = None
-    ) -> Dict[str, Any]:
-        """Invoke local Ollama server (OpenAI-compatible /api/chat endpoint)."""
-        if not self.ollama_client:
-            raise RuntimeError("Ollama client not initialized")
-
-        import requests
-
-        model = getattr(settings, 'OLLAMA_MODEL', 'llama3.1')
-        timeout = getattr(settings, 'OLLAMA_TIMEOUT', 60)
-        max_tokens = max_tokens or 512
-        temperature = temperature if temperature is not None else 0.0
-
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-            "options": {"temperature": temperature, "num_predict": max_tokens}
-        }
-
-        start_time = time.time()
-        try:
-            resp = requests.post(
-                f"{self.ollama_client}/api/chat",
-                json=payload,
-                timeout=timeout
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            latency = time.time() - start_time
-            content = data.get("message", {}).get("content", "").strip()
-            return {
-                "content": content,
-                "provider": LLMProvider.OLLAMA,
-                "model": model,
-                "latency": latency,
-                "tokens": {
-                    "input": data.get("prompt_eval_count", 0),
-                    "output": data.get("eval_count", 0)
-                },
-                "system_prompt": system_prompt,
-                "user_prompt": prompt
-            }
-        except Exception as e:
-            logger.error(f"Ollama invocation error: {e}")
-            raise
 
     def _initialize_llama(self) -> None:
         """Initialize local LLM client using GGUF (llama-cpp-python) or Transformers."""
@@ -1426,46 +1416,5 @@ class LLMClient:
                 or self.llama_client is not None
             )
     
-    def invoke(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        max_tokens: int = None,
-        temperature: float = None
-    ) -> str:
-        """
-        Simplified invoke method that returns just the content string
-        
-        Args:
-            prompt: User prompt
-            system_prompt: Optional system prompt
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-        
-        Returns:
-            Generated text content
-        """
-        response = self.generate(prompt, system_prompt, max_tokens, temperature)
-        return response.get("content", "")
-    
-    def get_active_model_name(self) -> str:
-        """
-        Get the name of the currently active model
-        
-        Returns:
-            Model name string
-        """
-        if self.groq_client or self.groq_client_b or self.groq_client_c:
-            return f"{settings.GROQ_MODEL} (Groq)"
-        elif self.bedrock_client:
-            return "claude-3-haiku (Bedrock)"
-        elif self.huggingface_client:
-            return f"{settings.HF_MODEL.split('/')[-1]} (HuggingFace)"
-        elif self.llama_client:
-            return "llama-3.1-8b (Local)"
-        else:
-            return "unknown"
-
-
 # Global LLM client instance
 llm_client = LLMClient()

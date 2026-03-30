@@ -41,6 +41,11 @@ class ServiceRegistry:
     @staticmethod
     def get_cache() -> CacheService:
         provider = settings.STACK_CACHE_PROVIDER.lower().strip()
+        profile = settings.STACK_PROFILE.lower().strip()
+
+        if profile == "cloud":
+            provider = "elasticache"
+
         if provider in {"redis", "elasticache"}:
             try:
                 from adapters.redis_cache import RedisCacheAdapter

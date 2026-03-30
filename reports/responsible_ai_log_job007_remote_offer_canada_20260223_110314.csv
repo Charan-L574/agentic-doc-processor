@@ -1,9 +1,0 @@
-agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
-ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:03:14.000,359.8718490077256,1025,1090,507,False,,0,"--- Document: job007_remote_offer_canada.txt ---
-C","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
-ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:03:14.359,1122.7938215178049,1751,447,304,False,,0,"--- Document: job007_remote_offer_canada.txt ---
-C","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
-ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:03:15.482,298.478585359312,971,609,428,False,,0,"--- Document: job007_remote_offer_canada.txt ---
-C","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
-RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:03:15.781,1156.5839728696262,1498,589,580,False,,0,"--- Document: job007_remote_offer_canada.txt ---
-C","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

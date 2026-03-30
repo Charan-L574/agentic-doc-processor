@@ -160,6 +160,26 @@ class ValidatorAgent:
 
         return normalized
 
+    def _update_runtime_knowledge_profile(self, state: DocumentState, extracted_fields: Dict[str, Any]) -> None:
+        if not isinstance(extracted_fields, dict) or not extracted_fields:
+            return
+
+        if self.knowledge_lookup is None:
+            self._ensure_knowledge_lookup()
+        if self.knowledge_lookup is None:
+            return
+
+        doc_type = state.get("doc_type")
+        doc_type_label = doc_type.value if isinstance(doc_type, DocumentType) else str(doc_type or "unknown")
+        custom_doc_type = state.get("custom_doc_type")
+
+        self.knowledge_lookup.register_runtime_observed_fields(
+            doc_type=doc_type_label,
+            observed_fields=extracted_fields,
+            custom_doc_type=custom_doc_type,
+            notes="Auto-merged from successful validator output.",
+        )
+
     @staticmethod
     def _field_has_value(v) -> bool:
         """True when a field has any meaningful value — empty list [] counts as present."""
@@ -614,7 +634,7 @@ class ValidatorAgent:
             "system_prompt": "",
             "user_prompt": ""
         }
-        
+    
         try:
             extracted_fields = state["extracted_fields"] or {}
             doc_type = state["doc_type"]
@@ -798,6 +818,16 @@ class ValidatorAgent:
             state["current_accuracy"] = _acc
             state["missing_schema_fields"] = _missing
             state["agent_timings"][self.name] = latency
+
+            if is_valid:
+                try:
+                    self._update_runtime_knowledge_profile(state, extracted_fields)
+                    logger.info(
+                        f"{self.name}: Runtime knowledge profile updated in DB "
+                        f"({len(extracted_fields)} observed fields)"
+                    )
+                except Exception as e:
+                    logger.warning(f"{self.name}: Runtime knowledge profile update skipped: {e}")
             
             # Responsible AI logging
             state["trace_log"].append(

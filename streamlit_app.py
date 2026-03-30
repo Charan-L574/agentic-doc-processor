@@ -1509,31 +1509,26 @@ def main():
 
     # Tab 2: Responsible AI Logs
     with tabs[1]:
-        st.markdown("## 🔍 Responsible AI Logs")
-        
-        st.info("Process a document first to see the decision trace logs.")
-        
         # Check if we have trace logs from the last processed document
         # This will be populated when a document is processed
         if 'last_result' in st.session_state and 'trace_log' in st.session_state['last_result']:
             display_responsible_ai_logs(st.session_state['last_result']['trace_log'])
         else:
+            st.markdown("## 🔍 Responsible AI Logs")
             st.warning("No logs available yet. Please process a document in the 'Process Document' tab first.")
     
     # Tab 3: Detailed Metrics
     with tabs[2]:
-        st.markdown("## 📊 Detailed Metrics")
-        
-        st.info("Process a document first to see detailed performance metrics.")
-        
         # Check if we have metrics from the last processed document
         if 'last_result' in st.session_state:
             result = st.session_state['last_result']
             if 'metrics' in result:
                 display_detailed_metrics(result['metrics'], result)
             else:
+                st.markdown("## 📊 Detailed Metrics")
                 st.warning("No metrics available. Please process a document in the 'Process Document' tab first.")
         else:
+            st.markdown("## 📊 Detailed Metrics")
             st.warning("No data available yet. Please process a document in the 'Process Document' tab first.")
     
     # Tab 4: Workflow Diagram

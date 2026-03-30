@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from utils.config import settings
-from graph.workflow import workflow, hitl_workflow
+from graph.workflow import hitl_workflow
 from agents.supervisor_agent import SupervisorAgent
 from utils.logger import logger
 from utils.graph_visualizer import graph_visualizer
@@ -24,7 +24,7 @@ from utils.service_registry import ServiceRegistry
 from schemas.document_schemas import ProcessingResult
 
 
-supervisor_agent = SupervisorAgent(workflow, hitl_workflow)
+supervisor_agent = SupervisorAgent()
 # Wire the HITLWorkflow shim back to the supervisor so any legacy callers
 # that still go through hitl_workflow still reach the supervisor's graph.
 hitl_workflow.set_supervisor(supervisor_agent)

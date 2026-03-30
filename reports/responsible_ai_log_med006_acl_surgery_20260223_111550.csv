@@ -1,9 +1,0 @@
-agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
-ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 11:15:50.000,570.3542477484763,747,924,143,False,,0,"--- Document: med006_acl_surgery.txt ---
-Content e","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
-ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:15:50.570,770.2718429958164,1668,593,147,False,,0,"--- Document: med006_acl_surgery.txt ---
-Content e","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
-ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 11:15:51.340,445.5270393609993,1777,567,215,False,,0,"--- Document: med006_acl_surgery.txt ---
-Content e","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
-RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 11:15:51.786,1364.594026203386,494,500,343,False,,0,"--- Document: med006_acl_surgery.txt ---
-Content e","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

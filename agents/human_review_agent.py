@@ -24,6 +24,7 @@ from schemas.document_schemas import (
     ValidationResult,
     ValidationStatus,
 )
+from utils.knowledge_lookup import get_knowledge_lookup
 from utils.logger import logger
 
 
@@ -192,6 +193,24 @@ class HumanInLoopAgent:
                 f"{self.name}: Applied human corrections "
                 f"({len(corrections)} fields)"
             )
+
+        observed_fields = state.get("extracted_fields") if isinstance(state.get("extracted_fields"), dict) else {}
+        if observed_fields:
+            try:
+                knowledge_lookup = get_knowledge_lookup()
+                doc_type_label = state.get("doc_type").value if state.get("doc_type") else "unknown"
+                knowledge_lookup.register_runtime_observed_fields(
+                    doc_type=doc_type_label,
+                    observed_fields=observed_fields,
+                    custom_doc_type=state.get("custom_doc_type"),
+                    notes="Auto-merged from HITL-approved extraction output.",
+                )
+                logger.info(
+                    f"{self.name}: Runtime knowledge profile updated in DB "
+                    f"({len(observed_fields)} observed fields)"
+                )
+            except Exception as e:
+                logger.warning(f"{self.name}: Failed to update runtime knowledge profile: {e}")
 
         # Mark validation as human-approved so graph can proceed to redact
         state["validation_result"] = ValidationResult(

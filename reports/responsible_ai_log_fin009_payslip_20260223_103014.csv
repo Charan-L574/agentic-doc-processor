@@ -1,9 +1,0 @@
-agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
-ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:30:14.000,476.53203432310534,1692,310,217,False,,0,"--- Document: fin009_payslip.txt ---
-Content excer","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
-ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:30:14.476,640.4401968661845,1076,322,363,False,,0,"--- Document: fin009_payslip.txt ---
-Content excer","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
-ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:30:15.116,271.40139031069856,838,802,167,False,,0,"--- Document: fin009_payslip.txt ---
-Content excer","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
-RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:30:15.388,1306.3467961166796,1368,498,501,False,,0,"--- Document: fin009_payslip.txt ---
-Content excer","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

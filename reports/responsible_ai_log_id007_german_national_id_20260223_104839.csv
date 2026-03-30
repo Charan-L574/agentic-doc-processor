@@ -1,9 +1,0 @@
-agent_name,llm_model_used,llm_provider,timestamp,latency_ms,tokens_used,tokens_input,tokens_output,error_occurred,error_message,retry_attempt,input_preview,output_preview
-ClassifierAgent,llama-3.1-8b-instant,groq,2026-02-23 10:48:39.000,599.5363322563327,1501,468,359,False,,0,"--- Document: id007_german_national_id.txt ---
-Con","{""agent"": ""ClassifierAgent"", ""status"": ""completed"""
-ExtractorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:48:39.599,759.1202488502408,540,1150,225,False,,0,"--- Document: id007_german_national_id.txt ---
-Con","{""agent"": ""ExtractorAgent"", ""status"": ""completed"","
-ValidatorAgent,llama-3.3-70b-versatile,groq,2026-02-23 10:48:40.358,310.8581266216652,1512,970,254,False,,0,"--- Document: id007_german_national_id.txt ---
-Con","{""agent"": ""ValidatorAgent"", ""status"": ""completed"","
-RedactorAgent,llama-3.1-8b-instant,groq,2026-02-23 10:48:40.669,1228.174436008165,1483,258,441,False,,0,"--- Document: id007_german_national_id.txt ---
-Con","{""agent"": ""RedactorAgent"", ""status"": ""completed"", "

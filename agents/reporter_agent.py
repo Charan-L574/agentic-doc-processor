@@ -254,6 +254,57 @@ class ReporterAgent:
             )
         except Exception as e:
             logger.error(f"Failed to save CSV report: {e}")
+
+    def _save_metrics_csv_report(
+        self,
+        report_data: Dict[str, Any],
+        filename: str
+    ) -> None:
+        """
+        Save a flattened metrics report as single-row CSV.
+
+        Args:
+            report_data: Complete metrics report dict
+            filename: Output filename
+        """
+        try:
+            filepath = settings.REPORTS_DIR / filename
+
+            metrics = report_data.get("metrics", {}) or {}
+            redaction = report_data.get("redaction", {}) or {}
+            classification = report_data.get("classification", {}) or {}
+
+            row = {
+                "document": report_data.get("document"),
+                "doc_type": report_data.get("doc_type"),
+                "timestamp": report_data.get("timestamp"),
+                "workflow_success": metrics.get("workflow_success"),
+                "extraction_accuracy": metrics.get("extraction_accuracy"),
+                "pii_recall": metrics.get("pii_recall"),
+                "pii_precision": metrics.get("pii_precision"),
+                "total_processing_time": metrics.get("total_processing_time"),
+                "error_count": metrics.get("error_count"),
+                "retry_count": metrics.get("retry_count"),
+                "pii_count": redaction.get("pii_count", 0),
+                "classification_confidence": classification.get("confidence") if isinstance(classification, dict) else None,
+            }
+
+            fieldnames = list(row.keys())
+            with open(filepath, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerow(row)
+
+            logger.info(f"Metrics CSV report saved: {filepath}")
+
+            csv_bytes = filepath.read_bytes()
+            self._persist_to_storage(
+                key=f"reports/{filename}",
+                data=csv_bytes,
+                content_type="text/csv",
+            )
+        except Exception as e:
+            logger.error(f"Failed to save metrics CSV report: {e}")
     
     def _create_metrics_summary(self, state: DocumentState) -> Dict[str, Any]:
         """
@@ -449,6 +500,11 @@ class ReporterAgent:
             self._save_json_report(
                 complete_report,
                 f"metrics_report_{doc_name}_{timestamp_str}.json"
+            )
+
+            self._save_metrics_csv_report(
+                complete_report,
+                f"metrics_report_{doc_name}_{timestamp_str}.csv"
             )
 
             artifact_data = {

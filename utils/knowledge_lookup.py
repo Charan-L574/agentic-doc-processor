@@ -195,6 +195,216 @@ class KnowledgeLookup:
             encoding="utf-8",
         )
 
+    def _optionalize_property_schema(self, schema_fragment: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(schema_fragment, dict):
+            return {"type": ["string", "null"]}
+
+        fragment = dict(schema_fragment)
+        prop_type = fragment.get("type")
+        if isinstance(prop_type, str):
+            if prop_type != "null":
+                fragment["type"] = [prop_type, "null"]
+        elif isinstance(prop_type, list):
+            normalized = []
+            for item in prop_type:
+                if isinstance(item, str) and item not in normalized:
+                    normalized.append(item)
+            if "null" not in normalized:
+                normalized.append("null")
+            fragment["type"] = normalized
+        else:
+            fragment["type"] = ["string", "null"]
+
+        return fragment
+
+    def _merge_custom_json_schema(
+        self,
+        existing_schema: Dict[str, Any],
+        incoming_schema: Dict[str, Any],
+        explicit_required_fields: List[str],
+    ) -> Dict[str, Any]:
+        base_schema = existing_schema if isinstance(existing_schema, dict) else {}
+        next_schema = incoming_schema if isinstance(incoming_schema, dict) else {}
+
+        existing_properties = base_schema.get("properties", {})
+        incoming_properties = next_schema.get("properties", {})
+        if not isinstance(existing_properties, dict):
+            existing_properties = {}
+        if not isinstance(incoming_properties, dict):
+            incoming_properties = {}
+
+        merged_properties = dict(existing_properties)
+        for field_name, field_schema in incoming_properties.items():
+            if not isinstance(field_name, str) or not field_name.strip():
+                continue
+            clean_name = field_name.strip()
+            if clean_name in merged_properties:
+                merged_properties[clean_name] = field_schema if isinstance(field_schema, dict) else merged_properties[clean_name]
+                continue
+
+            if clean_name in explicit_required_fields:
+                merged_properties[clean_name] = field_schema if isinstance(field_schema, dict) else {"type": "string"}
+            else:
+                merged_properties[clean_name] = self._optionalize_property_schema(
+                    field_schema if isinstance(field_schema, dict) else {"type": "string"}
+                )
+
+        for required_field in explicit_required_fields:
+            if required_field not in merged_properties:
+                merged_properties[required_field] = {"type": "string"}
+
+        existing_required = base_schema.get("required", [])
+        if not isinstance(existing_required, list):
+            existing_required = []
+
+        merged_required = []
+        for field_name in list(existing_required) + list(explicit_required_fields):
+            if (
+                isinstance(field_name, str)
+                and field_name in merged_properties
+                and field_name not in merged_required
+            ):
+                merged_required.append(field_name)
+
+        merged_schema = {
+            "type": "object",
+            "properties": merged_properties,
+            "required": merged_required,
+        }
+
+        for key in ("title", "description", "additionalProperties"):
+            if key in next_schema:
+                merged_schema[key] = next_schema[key]
+            elif key in base_schema:
+                merged_schema[key] = base_schema[key]
+
+        return merged_schema
+
+    def _infer_json_schema_for_value(self, value: Any) -> Dict[str, Any]:
+        if value is None:
+            return {"type": ["string", "null"]}
+        if isinstance(value, bool):
+            return {"type": ["boolean", "null"]}
+        if isinstance(value, int) and not isinstance(value, bool):
+            return {"type": ["integer", "null"]}
+        if isinstance(value, float):
+            return {"type": ["number", "null"]}
+        if isinstance(value, dict):
+            return {"type": ["object", "null"]}
+        if isinstance(value, list):
+            return {"type": ["array", "null"]}
+        return {"type": ["string", "null"]}
+
+    def register_runtime_observed_fields(
+        self,
+        doc_type: str,
+        observed_fields: Dict[str, Any],
+        custom_doc_type: Optional[str] = None,
+        notes: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Merge observed fields into SQLite-backed profile only.
+
+        This method intentionally does NOT write to custom_schemas.json.
+        """
+        target = str(custom_doc_type or doc_type or "unknown").strip().lower().replace(" ", "_")
+        if not target:
+            target = "unknown"
+
+        cleaned_fields: Dict[str, Any] = {}
+        if isinstance(observed_fields, dict):
+            for key, value in observed_fields.items():
+                field_name = str(key).strip()
+                if field_name:
+                    cleaned_fields[field_name] = value
+
+        if not cleaned_fields:
+            return {
+                "doc_type": target,
+                "required_fields": [],
+                "json_schema": {},
+                "notes": "",
+                "source": "runtime_observed",
+            }
+
+        row = self._fetch_entry(target)
+        existing_source = "runtime_observed"
+        existing_content = ""
+        existing_metadata: Dict[str, Any] = {}
+
+        if row is None and target != "unknown":
+            row = self._fetch_entry("unknown")
+
+        if row is not None:
+            _, _, existing_source, existing_content, existing_metadata = row
+
+        existing_schema = existing_metadata.get("json_schema", {}) if isinstance(existing_metadata, dict) else {}
+        if not isinstance(existing_schema, dict):
+            existing_schema = {}
+
+        existing_required = existing_metadata.get("required_fields", []) if isinstance(existing_metadata, dict) else []
+        if not isinstance(existing_required, list):
+            existing_required = []
+        existing_required = [str(field).strip() for field in existing_required if str(field).strip()]
+
+        incoming_schema = {
+            "type": "object",
+            "properties": {
+                field_name: self._infer_json_schema_for_value(field_value)
+                for field_name, field_value in cleaned_fields.items()
+            },
+            "required": [],
+        }
+
+        merged_schema = self._merge_custom_json_schema(
+            existing_schema=existing_schema,
+            incoming_schema=incoming_schema,
+            explicit_required_fields=existing_required,
+        )
+
+        merged_required = merged_schema.get("required", []) if isinstance(merged_schema.get("required", []), list) else []
+        merged_fields = list(merged_schema.get("properties", {}).keys()) if isinstance(merged_schema.get("properties", {}), dict) else []
+
+        merged_notes = str(notes or "").strip() or str(existing_metadata.get("notes", "") if isinstance(existing_metadata, dict) else "").strip()
+        content = (
+            f"Runtime profile for: {target}\n"
+            f"Schema fields: {', '.join(merged_fields)}\n"
+            f"Required fields: {', '.join(merged_required)}\n"
+            f"Observed in latest run: {', '.join(cleaned_fields.keys())}"
+        )
+
+        metadata = {
+            "doc_type": target,
+            "schema_fields": merged_fields,
+            "required_fields": merged_required,
+            "json_schema": merged_schema,
+            "notes": merged_notes,
+            "runtime_observed_fields": list(cleaned_fields.keys()),
+        }
+
+        if existing_source.startswith("fallback_"):
+            existing_source = existing_source.replace("fallback_", "", 1)
+        if existing_source == "none":
+            existing_source = "runtime_observed"
+
+        source_label = f"runtime_augmented_{existing_source}"
+        self._upsert_entry(
+            doc_type=target,
+            source=source_label,
+            title=f"{target} runtime schema profile",
+            content=content if content.strip() else existing_content,
+            metadata=metadata,
+        )
+        self._rebuild_index()
+
+        return {
+            "doc_type": target,
+            "required_fields": merged_required,
+            "json_schema": merged_schema,
+            "notes": merged_notes,
+            "source": source_label,
+        }
+
     def refresh(self) -> None:
         """Re-read schema sources and rebuild the vector index."""
         self._bootstrap_knowledge()
@@ -208,24 +418,56 @@ class KnowledgeLookup:
         json_schema: Dict[str, Any],
         notes: str = "",
     ) -> Dict[str, Any]:
-        """Add or update a custom schema, then refresh SQLite + FAISS state."""
+        """Add or update a custom schema, merging new fields as optional by default."""
         normalized_doc_type = str(doc_type).strip().lower().replace(" ", "_")
         cleaned_required = [str(field).strip() for field in required_fields if str(field).strip()]
-        payload = {
-            "doc_type": normalized_doc_type,
-            "required_fields": cleaned_required,
-            "json_schema": json_schema if isinstance(json_schema, dict) else {},
-            "notes": str(notes or "").strip(),
-        }
 
         entries = self._read_custom_schema_entries()
+        existing_entry = None
         replaced = False
         for index, entry in enumerate(entries):
             if str(entry.get("doc_type", "")).strip().lower() == normalized_doc_type:
-                entries[index] = payload
+                existing_entry = entry
                 replaced = True
                 break
-        if not replaced:
+
+        existing_schema = {}
+        existing_required = []
+        existing_notes = ""
+        if isinstance(existing_entry, dict):
+            maybe_schema = existing_entry.get("json_schema", {})
+            existing_schema = maybe_schema if isinstance(maybe_schema, dict) else {}
+            maybe_required = existing_entry.get("required_fields", [])
+            if isinstance(maybe_required, list):
+                existing_required = [
+                    str(field).strip() for field in maybe_required if str(field).strip()
+                ]
+            existing_notes = str(existing_entry.get("notes", "") or "").strip()
+
+        merged_required = []
+        for field_name in existing_required + cleaned_required:
+            if field_name and field_name not in merged_required:
+                merged_required.append(field_name)
+
+        merged_schema = self._merge_custom_json_schema(
+            existing_schema=existing_schema,
+            incoming_schema=json_schema if isinstance(json_schema, dict) else {},
+            explicit_required_fields=merged_required,
+        )
+
+        payload = {
+            "doc_type": normalized_doc_type,
+            "required_fields": merged_schema.get("required", []),
+            "json_schema": merged_schema,
+            "notes": str(notes or "").strip() or existing_notes,
+        }
+
+        if replaced:
+            for index, entry in enumerate(entries):
+                if str(entry.get("doc_type", "")).strip().lower() == normalized_doc_type:
+                    entries[index] = payload
+                    break
+        else:
             entries.append(payload)
 
         self._write_custom_schema_entries(entries)
